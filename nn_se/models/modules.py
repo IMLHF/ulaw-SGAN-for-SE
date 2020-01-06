@@ -20,17 +20,6 @@ class RealVariables(object):
       self._lr = tf.compat.v1.get_variable('lr', dtype=tf.float32, trainable=False,
                                            initializer=tf.constant(PARAM.learning_rate))
 
-    # linear_coef and log_bias in log features # f = a*[log(bx+c)-log(c)], (a,b,c>0), init:a=0.1,b=1.0,c=1e-6
-    self._f_log_a_var = tf.compat.v1.get_variable('LogFilter/f_log_a', dtype=tf.float32, # belong to discriminator
-                                                  initializer=tf.constant(PARAM.f_log_a), trainable=PARAM.f_log_var_trainable)
-    self._f_log_b_var = tf.compat.v1.get_variable('LogFilter/f_log_b', dtype=tf.float32,
-                                                  initializer=tf.constant(PARAM.f_log_b), trainable=PARAM.f_log_var_trainable)
-    self._f_log_c_var = tf.compat.v1.get_variable('LogFilter/f_log_c', dtype=tf.float32,
-                                                  initializer=tf.constant(PARAM.f_log_c), trainable=False)
-    self._f_log_a = PARAM.log_filter_eps_a_b + tf.nn.relu(self._f_log_a_var)
-    self._f_log_b = PARAM.log_filter_eps_a_b + tf.nn.relu(self._f_log_b_var)
-    self._f_log_c = PARAM.log_filter_eps_c + tf.nn.relu(self._f_log_c_var)
-
     # CNN
     self.conv2d_layers = []
     if PARAM.no_cnn:
@@ -80,24 +69,37 @@ class RealVariables(object):
     self.out_fc = tf.keras.layers.Dense(PARAM.fft_dot, name='se_net/out_fc')
 
     # discriminator
-    if PARAM.model_name == "DISCRIMINATOR_AD_MODEL":
-      if PARAM.simple_D:
-        self.d_blstm = tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_1')
-        self.d_lstm = tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_2')
-        self.d_denses = [tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_3'),
-                         tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_4'),
-                         tf.keras.layers.Dense(2, name='discriminator/d_dense_5')]
-      else:
-        forward_lstm = tf.keras.layers.LSTM(self.N_RNN_CELL, dropout=0.2, implementation=2,
-                                            return_sequences=True, name='fwlstm_%d' % i)
-        backward_lstm = tf.keras.layers.LSTM(self.N_RNN_CELL, dropout=0.2, implementation=2,
-                                             return_sequences=True, name='bwlstm_%d' % i, go_backwards=True)
-        self.d_blstm = tf.keras.layers.Bidirectional(layer=forward_lstm, backward_layer=backward_lstm,
-                                                     merge_mode='concat', name='discriminator/d_blstm')
-        self.d_lstm = tf.keras.layers.LSTM(self.N_RNN_CELL, dropout=0.2, implementation=2,
-                                           return_sequences=PARAM.frame_level_D, name='discriminator/lstm')
-        self.d_denses = [tf.keras.layers.Dense(self.N_RNN_CELL//2, activation='relu', name='discriminator/d_dense_1'),
-                         tf.keras.layers.Dense(2, name='discriminator/d_dense_2')]
+    self.d_denses = [tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_1'),
+                     tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_2'),
+                     tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_3'),
+                     tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_4'),
+                     tf.keras.layers.Dense(2, name='discriminator/d_dense_5')]
+
+    # FeatureTransformerLayer
+    if PARAM.FT_type == "LogValueT":
+      # linear_coef and log_bias in log features # f = a*[log(bx+c)-log(c)], (a,b,c>0), init:a=1.0,b=0.0001,c=1e-3
+      self._f_log_a_var = tf.compat.v1.get_variable('FeatureTransformerLayer/f_log_a', dtype=tf.float32, # belong to discriminator
+                                                    initializer=tf.constant(PARAM.f_log_a), trainable=PARAM.f_log_var_trainable)
+      self._f_log_b_var = tf.compat.v1.get_variable('FeatureTransformerLayer/f_log_b', dtype=tf.float32,
+                                                    initializer=tf.constant(PARAM.f_log_b), trainable=PARAM.f_log_var_trainable)
+      self._f_log_a = PARAM.log_filter_eps_a_b + tf.nn.relu(self._f_log_a_var)
+      self._f_log_b = PARAM.log_filter_eps_a_b + tf.nn.relu(self._f_log_b_var)
+      self._f_log_c = PARAM.log_filter_eps_c
+
+      def LogFilter_of_Loss(x,type_=PARAM.LogFilter_type):
+        a = self._f_log_a
+        b = self._f_log_b
+        c = self._f_log_c
+        if type_ == 1:
+          y = (tf.log(x * b + c) - tf.log(c))*a
+        elif type_ == 2:
+          y = (tf.log(x * b + c) - tf.log(c))/(tf.log(a*b+c)-tf.log(c))
+        return y
+      self.FeatureTransformer = LogFilter_of_Loss
+    elif PARAM.FT_type == "LinearT":
+      self.FeatureTransformer = self.d_denses[0],
+    else:
+      raise NotImplementedError
 
 
 class Module(object):
@@ -136,9 +138,10 @@ class Module(object):
     forward_outputs = self.forward(mixed_wav_batch)
     self._est_clean_wav_batch = forward_outputs[-1]
 
-    # labels
     if mode == PARAM.MODEL_INFER_KEY:
-      clean_wav_batch = tf.ones_like(mixed_wav_batch)
+      return
+
+    # labels
     self.clean_wav_batch = clean_wav_batch
     self.clean_spec_batch = misc_utils.tf_batch_stft(clean_wav_batch, PARAM.frame_length, PARAM.frame_step) # complex label
     # self.noise_wav_batch = mixed_wav_batch - clean_wav_batch
@@ -151,45 +154,21 @@ class Module(object):
     elif PARAM.feature_type == "DCT":
       self.clean_mag_batch = self.clean_spec_batch # DCT real feat
 
-    self._se_loss = self.get_loss(forward_outputs)
-
-    self._d_loss = tf.reduce_sum(tf.zeros([1]))
-    self._deep_features_loss = 0.0
-    self._deep_features_losses = 0.0
-    if PARAM.model_name == "DISCRIMINATOR_AD_MODEL" and mode != PARAM.MODEL_INFER_KEY:
-      self._d_loss, self._deep_features_losses = self.get_discriminator_loss(forward_outputs)
-      for l in self._deep_features_losses:
-        self._deep_features_loss += l
-
-    self._loss = self._se_loss + self._d_loss
+    # losses
+    self._not_transformed_losses, self._d_loss, self._transformed_losses = self.get_loss(forward_outputs)
 
     # trainable_variables = tf.compat.v1.trainable_variables()
     self.d_params = tf.compat.v1.trainable_variables(scope='discriminator*')
-    if PARAM.add_logFilter_in_Discrimitor:
-      self.d_params.extend(tf.compat.v1.trainable_variables(scope='LogFilter*'))
-      # misc_utils.show_variables(d_params)
+    self.d_params.extend(tf.compat.v1.trainable_variables(scope='FeatureTransformerLayer*'))
+    # misc_utils.show_variables(d_params)
     self.se_net_params = tf.compat.v1.trainable_variables(scope='se_net*')
     self.save_variables.extend(self.se_net_params + self.d_params)
     self.saver = tf.compat.v1.train.Saver(self.save_variables,
                                           max_to_keep=PARAM.max_keep_ckpt,
                                           save_relative_paths=True)
 
-    if mode == PARAM.MODEL_VALIDATE_KEY or mode == PARAM.MODEL_INFER_KEY:
+    if mode == PARAM.MODEL_VALIDATE_KEY:
       return
-
-    # optimizer
-    # opt = tf.keras.optimizers.Adam(learning_rate=self._lr)
-    self.optimizer = tf.compat.v1.train.AdamOptimizer(self._lr)
-    # misc_utils.show_variables(se_net_params)
-    gradients = tf.gradients(
-      self._se_loss,
-      self.se_net_params,
-      colocate_gradients_with_ops=True
-    )
-    self.se_loss_grads, gradient_norm = tf.clip_by_global_norm(
-        gradients, PARAM.max_gradient_norm)
-    self._train_op = self.optimizer.apply_gradients(zip(self.se_loss_grads, self.se_net_params),
-                                                    global_step=self.global_step)
 
 
   def CNN_RNN_FC(self, mixed_mag_batch, training=False):
@@ -241,12 +220,8 @@ class Module(object):
       mixed_mag_batch = mixed_spec_batch
     training = (self.mode == PARAM.MODEL_TRAIN_KEY)
 
-    if PARAM.add_logFilter_in_SE_inputs:
-      a = tf.stop_gradient(self.variables._f_log_a)
-      b = tf.stop_gradient(self.variables._f_log_b)
-      c = tf.stop_gradient(self.variables._f_log_c)
-      mixed_mag_batch = misc_utils.LogFilter_of_Loss(a, b, c, mixed_mag_batch,
-                                                     PARAM.LogFilter_type)
+    if PARAM.add_FeatureTrans_in_SE_inputs:
+      mixed_mag_batch = self.variables.FeatureTransformer(mixed_mag_batch)
 
     mask = self.CNN_RNN_FC(mixed_mag_batch, training)
 
@@ -275,14 +250,12 @@ class Module(object):
     deep_features = []
     training = (self.mode == PARAM.MODEL_TRAIN_KEY)
     outputs = tf.concat([clean_mag_batch, est_mag_batch], axis=0)
-    if PARAM.add_logFilter_in_Discrimitor:
-      a = self.variables._f_log_a
-      b = self.variables._f_log_b
-      c = self.variables._f_log_c
-      outputs = misc_utils.LogFilter_of_Loss(a,b,c,outputs,PARAM.LogFilter_type)
+
+    # Features Transformer
+    outputs = self.variables.FeatureTransformer(outputs)
 
     # deep_features.append(outputs) # [batch*2, time, f]
-    if PARAM.frame_level_D or PARAM.simple_D:
+    if PARAM.frame_level_D:
       zeros = tf.zeros(clean_mag_batch.shape[0:2], dtype=tf.int32)
       ones = tf.ones(est_mag_batch.shape[0:2], dtype=tf.int32)
     else:
@@ -292,33 +265,27 @@ class Module(object):
     onehot_labels = tf.one_hot(labels, 2)
     # print(outputs.shape.as_list(), ' dddddddddddddddddddddd test shape')
 
-    if PARAM.simple_D:
-      outputs1 = self.variables.d_blstm(outputs) # [batch*2, time, fea]
-      deep_features.append(outputs1) # [batch*2 time f]
+    outputs1 = self.variables.d_denses[0](outputs) # [batch*2, time, fea]
+    deep_features.append(outputs1) # [batch*2 time f]
 
-      outputs2 = self.variables.d_lstm(outputs1) # [batch*2, time, f]
-      deep_features.append(outputs2)
+    outputs2 = self.variables.d_denses[1](outputs1) # [batch*2, time, f]
+    if training:
+      outputs2 = tf.nn.dropout(outputs2, keep_prob=PARAM.D_keep_prob)
+    deep_features.append(outputs2)
 
-      outputs3 = self.variables.d_denses[0](outputs2)
-      deep_features.append(outputs3)
+    outputs3 = self.variables.d_denses[2](outputs2)
+    deep_features.append(outputs3)
 
-      # inputs4 = tf.concat([outputs3, outputs2], axis=-1)
-      inputs4 = outputs3
-      outputs4 = self.variables.d_denses[1](inputs4)
-      deep_features.append(outputs4)
+    # inputs4 = tf.concat([outputs3, outputs2], axis=-1)
+    inputs4 = outputs3
+    outputs4 = self.variables.d_denses[3](inputs4)
+    if training:
+      outputs4 = tf.nn.dropout(outputs4, keep_prob=PARAM.D_keep_prob)
+    deep_features.append(outputs4)
 
-      # inputs5 = tf.concat([outputs4, outputs1], axis=-1)
-      inputs5 = outputs4
-      logits = self.variables.d_denses[2](inputs5)
-    else:
-      outputs = self.variables.d_blstm(outputs, training=training) # [batch*2, time, fea]
-      deep_features.append(outputs) # [batch*2 time f]
-      outputs = self.variables.d_lstm(outputs, training=training) # [batch, fea] or [batch*2, time, f]
-      deep_features.append(outputs)
-      for dense in self.variables.d_denses:
-        outputs = dense(outputs)
-        deep_features.append(outputs)
-      logits = outputs # [batch*2, time, 2]
+    # inputs5 = tf.concat([outputs4, outputs1], axis=-1)
+    inputs5 = outputs4
+    logits = self.variables.d_denses[4](inputs5)
     return logits, onehot_labels, deep_features
 
 

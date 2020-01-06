@@ -37,23 +37,23 @@ def train_one_epoch(sess, train_model, train_log_file,
 
   total_i = PARAM.n_train_set_records//PARAM.batch_size
   all_losses = {
-    'real_net_mag_mse': train_model.real_net_mag_mse,
-    'real_net_reMagMse': train_model.real_net_reMagMse,
-    'real_net_spec_mse': train_model.real_net_spec_mse,
-    'real_net_reSpecMse': train_model.real_net_reSpecMse,
-    'real_net_wav_L1': train_model.real_net_wav_L1,
-    'real_net_wav_L2': train_model.real_net_wav_L2,
-    'real_net_reWavL2': train_model.real_net_reWavL2,
-    'real_net_sdrV1': train_model.real_net_sdrV1,
-    'real_net_sdrV2': train_model.real_net_sdrV2,
-    'real_net_sdrV3': train_model.real_net_sdrV3,
-    'real_net_cosSimV1': train_model.real_net_cosSimV1,
-    'real_net_cosSimV1WT10': train_model.real_net_cosSimV1WT10,
-    'real_net_cosSimV2': train_model.real_net_cosSimV2,
-    'real_net_specTCosSimV1': train_model.real_net_specTCosSimV1,
-    'real_net_specFCosSimV1': train_model.real_net_specFCosSimV1,
-    'real_net_specTFCosSimV1': train_model.real_net_specTFCosSimV1,
-    'real_net_stSDRV3': train_model.real_net_stSDRV3,
+    'loss_mag_mse': train_model.loss_mag_mse,
+    'loss_reMagMse': train_model.loss_reMagMse,
+    'loss_spec_mse': train_model.loss_spec_mse,
+    'loss_reSpecMse': train_model.loss_reSpecMse,
+    'loss_wav_L1': train_model.loss_wav_L1,
+    'loss_wav_L2': train_model.loss_wav_L2,
+    'loss_reWavL2': train_model.loss_reWavL2,
+    'loss_sdrV1': train_model.loss_sdrV1,
+    'loss_sdrV2': train_model.loss_sdrV2,
+    'losssdrV3': train_model.losssdrV3,
+    'loss_cosSimV1': train_model.loss_cosSimV1,
+    'loss_cosSimV1WT10': train_model.loss_cosSimV1WT10,
+    'loss_cosSimV2': train_model.loss_cosSimV2,
+    'lossspecTCosSimV1': train_model.lossspecTCosSimV1,
+    'lossspecFCosSimV1': train_model.lossspecFCosSimV1,
+    'lossspecTFCosSimV1': train_model.lossspecTFCosSimV1,
+    'loss_stSDRV3': train_model.loss_stSDRV3,
     'd_loss': train_model.d_loss,
     'deep_features_loss': train_model._deep_features_loss,
     'deep_features_losses': train_model._deep_features_losses,
@@ -67,7 +67,7 @@ def train_one_epoch(sess, train_model, train_log_file,
     losses_to_run.append(all_losses[l_name])
 
   # debug
-  if PARAM.add_logFilter_in_Discrimitor or PARAM.add_logFilter_in_SE_Loss:
+  if PARAM.FT_type == "LogValueT" and "transformed_losses" in PARAM.losses_position:
     losses_to_run.extend([
         train_model.variables._f_log_a,
         train_model.variables._f_log_b,
@@ -78,7 +78,7 @@ def train_one_epoch(sess, train_model, train_log_file,
     try:
       run_out_losses = sess.run(losses_to_run)
 
-      if PARAM.add_logFilter_in_Discrimitor or PARAM.add_logFilter_in_SE_Loss:
+      if PARAM.FT_type == "LogValueT" and "transformed_losses" in PARAM.losses_position:
         a,b,c = run_out_losses[-3:] # debug
         run_out_losses = run_out_losses[:-3]
 
@@ -97,7 +97,7 @@ def train_one_epoch(sess, train_model, train_log_file,
       i += 1
       print("\r", end="")
       abc = "#(a %.4f b %.4f c %.2e)" % (
-          a, b, c) if PARAM.add_logFilter_in_Discrimitor or PARAM.add_logFilter_in_SE_Loss else "          "
+          a, b, c) if PARAM.FT_type == "LogValueT" and "transformed_losses" in PARAM.losses_position else "          "
       print("train: %d/%d, cost %.2fs, stop_loss %.2f, single_losses %s %s" % (
             i, total_i, time.time()-one_batch_time, sum_loss_stopCriterion,
             str(runOut_show_losses), abc),
@@ -143,23 +143,23 @@ def eval_one_epoch(sess, val_model, stop_criterion_losses, show_losses):
   i = 0
   total_i = PARAM.n_val_set_records//PARAM.batch_size
   all_losses = {
-    'real_net_mag_mse': val_model.real_net_mag_mse,
-    'real_net_reMagMse': val_model.real_net_reMagMse,
-    'real_net_spec_mse': val_model.real_net_spec_mse,
-    'real_net_reSpecMse': val_model.real_net_reSpecMse,
-    'real_net_wav_L1': val_model.real_net_wav_L1,
-    'real_net_wav_L2': val_model.real_net_wav_L2,
-    'real_net_reWavL2': val_model.real_net_reWavL2,
-    'real_net_sdrV1': val_model.real_net_sdrV1,
-    'real_net_sdrV2': val_model.real_net_sdrV2,
-    'real_net_sdrV3': val_model.real_net_sdrV3,
-    'real_net_cosSimV1': val_model.real_net_cosSimV1,
-    'real_net_cosSimV1WT10': val_model.real_net_cosSimV1WT10,
-    'real_net_cosSimV2': val_model.real_net_cosSimV2,
-    'real_net_specTCosSimV1': val_model.real_net_specTCosSimV1,
-    'real_net_specFCosSimV1': val_model.real_net_specFCosSimV1,
-    'real_net_specTFCosSimV1': val_model.real_net_specTFCosSimV1,
-    'real_net_stSDRV3': val_model.real_net_stSDRV3,
+    'loss_mag_mse': val_model.loss_mag_mse,
+    'loss_reMagMse': val_model.loss_reMagMse,
+    'loss_spec_mse': val_model.loss_spec_mse,
+    'loss_reSpecMse': val_model.loss_reSpecMse,
+    'loss_wav_L1': val_model.loss_wav_L1,
+    'loss_wav_L2': val_model.loss_wav_L2,
+    'loss_reWavL2': val_model.loss_reWavL2,
+    'loss_sdrV1': val_model.loss_sdrV1,
+    'loss_sdrV2': val_model.loss_sdrV2,
+    'losssdrV3': val_model.losssdrV3,
+    'loss_cosSimV1': val_model.loss_cosSimV1,
+    'loss_cosSimV1WT10': val_model.loss_cosSimV1WT10,
+    'loss_cosSimV2': val_model.loss_cosSimV2,
+    'lossspecTCosSimV1': val_model.lossspecTCosSimV1,
+    'lossspecFCosSimV1': val_model.lossspecFCosSimV1,
+    'lossspecTFCosSimV1': val_model.lossspecTFCosSimV1,
+    'loss_stSDRV3': val_model.loss_stSDRV3,
     'd_loss': val_model.d_loss,
     'deep_features_loss': val_model._deep_features_loss,
     'deep_features_losses': val_model._deep_features_losses,
@@ -193,7 +193,7 @@ def eval_one_epoch(sess, val_model, stop_criterion_losses, show_losses):
 
       runOut_losses_stopCriterion = run_out_losses[-len(stop_criterion_losses):]
       sum_loss_stopCriterion = np.sum(runOut_losses_stopCriterion)
-      # print("\n", loss, real_net_mag_mse, real_net_spec_mse, real_net_wavL1, real_net_wavL2, flush=True)
+      # print("\n", loss, loss_mag_mse, loss_spec_mse, losswavL1, losswavL2, flush=True)
       # print(np.mean(debug_mag), np.std(debug_mag), np.min(debug_mag), np.max(debug_mag), flush=True)
       total_loss += sum_loss_stopCriterion
       i += 1
@@ -323,9 +323,9 @@ def main():
 
     # stop criterion
     if (epoch >= PARAM.max_epoch or
-            model_abandon_time >= PARAM.max_model_abandon_time) and not PARAM.no_stop:
+            model_abandon_time >= PARAM.max_model_abandon_time):
       misc_utils.print_log("\n\n", train_log_file, no_time=True)
-      msg = "finished, too small learning rate %e.\n" % trainOutputs.lr
+      msg = "Training finished, final learning rate %e.\n" % trainOutputs.lr
       tf.logging.info(msg)
       misc_utils.print_log(msg, train_log_file)
       break

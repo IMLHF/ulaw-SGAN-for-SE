@@ -8,16 +8,6 @@ import os
 
 from ..FLAGS import PARAM
 
-def LogFilter_of_Loss(a,b,c,x,type_=1):
-  if type_ == 1:
-    y = (tf.log(x * b + c) - tf.log(c))*a
-  elif type_ == 2:
-    y = (tf.log(x * b + c) - tf.log(c))/(tf.log(a*b+c)-tf.log(c))
-  elif type_ == 3:
-    y = (tf.log(x * 100.0 + c + a*0.0 + b*0.0) - tf.log(c))/(tf.log(40.0+c)-tf.log(c))
-  elif type_ == 4:
-    y = (tf.log(x * b + 0.2 + c*0.0) - tf.log(0.2))*a
-  return y
 
 def tf_batch_stft(batch_wav, frame_length, frame_step):
   if PARAM.use_wav_as_feature:

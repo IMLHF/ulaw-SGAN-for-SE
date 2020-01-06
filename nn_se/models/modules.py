@@ -7,55 +7,6 @@ from ..FLAGS import PARAM
 from ..utils import losses
 from ..utils import misc_utils
 from ..utils import complex_value_ops as c_ops
-from .complex_value_layers import ComplexValueConv2d
-from .complex_value_layers import ComplexValueLSTMCell
-from .complex_value_layers import ComplexValueDense
-
-
-class ComplexVariables(object):
-  """
-  Complex Value NN Variables
-  """
-  def __init__(self):
-    with tf.compat.v1.variable_scope("compat.v1.var", reuse=tf.compat.v1.AUTO_REUSE):
-      self._global_step = tf.compat.v1.get_variable('global_step', dtype=tf.int32,
-                                                    initializer=tf.constant(1), trainable=False)
-      self._lr = tf.compat.v1.get_variable('lr', dtype=tf.float32, trainable=False,
-                                           initializer=tf.constant(PARAM.learning_rate))
-
-    # CCNN
-    self.conv2d_layers = []
-    if PARAM.no_cnn:
-      pass
-    else:
-      conv2d_1 = ComplexValueConv2d(8, [5,5], padding="same", name='se_net/conv2_1') # -> [batch, time, fft_dot, 8]
-      conv2d_2 = ComplexValueConv2d(16, [5,5], dilation_rate=[2,2], padding="same", name='se_net/conv2_2') # -> [batch, t, f, 16]
-      conv2d_3 = ComplexValueConv2d(8, [5,5], dilation_rate=[4,4], padding="same", name='se_net/conv2_3') # -> [batch, t, f, 8]
-      conv2d_4 = ComplexValueConv2d(1, [5,5], padding="same", name='se_net/conv2_4') # -> [batch, t, f, 1]
-      self.conv2d_layers = [conv2d_1, conv2d_2, conv2d_3, conv2d_4]
-
-    # CBLSTM
-    self.N_RNN_CELL = PARAM.rnn_units
-    self.blstm_layers = []
-    for i in range(1, PARAM.blstm_layers+1):
-      complex_lstm_cell_f = ComplexValueLSTMCell(self.N_RNN_CELL, dropout=0.2, implementation=PARAM.clstmCell_implementation)
-      complex_lstm_cell_b = ComplexValueLSTMCell(self.N_RNN_CELL, dropout=0.2, implementation=PARAM.clstmCell_implementation)
-      forward_lstm = tf.keras.layers.RNN(complex_lstm_cell_f, return_sequences=True, name='fwlstm_%d' % i)
-      backward_lstm = tf.keras.layers.RNN(complex_lstm_cell_b, return_sequences=True, name='bwlstm_%d' % i, go_backwards=True)
-      blstm = tf.keras.layers.Bidirectional(layer=forward_lstm, backward_layer=backward_lstm,
-                                            merge_mode='concat', name='se_net/blstm_%d' % i)
-      self.blstm_layers.append(blstm)
-
-    # CLSTM
-    self.lstm_layers = []
-    for i in range(1, PARAM.lstm_layers+1):
-      complex_lstm_cell = ComplexValueLSTMCell(self.N_RNN_CELL, dropout=0.2, recurrent_dropout=0.1,
-                                               implementation=PARAM.clstmCell_implementation)
-      lstm = tf.keras.layers.RNN(complex_lstm_cell, return_sequences=True, name='se_net/lstm_%d' % i)
-      self.lstm_layers.append(lstm)
-
-    # CFC
-    self.out_fc = ComplexValueDense(PARAM.fft_dot, name='se_net/out_fc')
 
 
 class RealVariables(object):
@@ -149,51 +100,6 @@ class RealVariables(object):
                          tf.keras.layers.Dense(2, name='discriminator/d_dense_2')]
 
 
-class RCHybirdVariables(RealVariables):
-  """
-  Real complex hybird model  Variables
-  """
-  def __init__(self):
-    super(RCHybirdVariables, self).__init__()
-    # post complex net
-    self.post_complex_layers = []
-    for i in range(1, PARAM.post_lstm_layers+1):
-      complex_lstm_cell_f = ComplexValueLSTMCell(self.N_RNN_CELL, dropout=0.2, recurrent_dropout=0.1,
-                                                 implementation=PARAM.clstmCell_implementation)
-      fwlstm = tf.keras.layers.RNN(complex_lstm_cell_f, return_sequences=True, name='fw_complex_lstm_%d' % i)
-      complex_lstm_cell_b = ComplexValueLSTMCell(self.N_RNN_CELL, dropout=0.2, recurrent_dropout=0.1,
-                                                 implementation=PARAM.clstmCell_implementation)
-      bwlstm = tf.keras.layers.RNN(complex_lstm_cell_b, return_sequences=True, go_backwards=True, name='bw_complex_lstm_%d' % i)
-      blstm = tf.keras.layers.Bidirectional(layer=fwlstm, backward_layer=bwlstm,
-                                            merge_mode='concat', name='se_net/post_complex_blstm')
-      self.post_complex_layers.append(blstm)
-
-    if len(self.post_complex_layers) > 0:
-      self.post_complex_layers.append(ComplexValueDense(PARAM.fft_dot, name='se_net/post_out_cfc'))
-
-
-class RRHybirdVariables(RealVariables):
-  """
-  Real Real-post hybird model  Variables
-  """
-  def __init__(self):
-    super(RRHybirdVariables, self).__init__()
-    # post complex net
-    self.post_real_layers = []
-    for i in range(1, PARAM.post_lstm_layers+1):
-      fwlstm = tf.keras.layers.LSTM(self.N_RNN_CELL, dropout=0.2, recurrent_dropout=0.1,
-                                    implementation=PARAM.clstmCell_implementation,
-                                    return_sequences=True, name='fw_real_lstm_%d' % i)
-      bwlstm = tf.keras.layers.LSTM(self.N_RNN_CELL, dropout=0.2, recurrent_dropout=0.1,
-                                    implementation=PARAM.clstmCell_implementation, go_backwards=True,
-                                    return_sequences=True, name='bw_real_lstm_%d' % i)
-      blstm = tf.keras.layers.Bidirectional(layer=fwlstm, backward_layer=bwlstm,
-                                            merge_mode='concat', name='se_net/post_real_blstm')
-      self.post_real_layers.append(blstm)
-
-    if len(self.post_real_layers) > 0:
-      self.post_real_layers.append(tf.keras.layers.Dense(PARAM.fft_dot*2, name='se_net/post_out_fc'))
-
 class Module(object):
   """
   speech enhancement base.
@@ -203,7 +109,7 @@ class Module(object):
   """
   def __init__(self,
                mode,
-               variables: Union[RealVariables, ComplexVariables],
+               variables: Union[RealVariables],
                mixed_wav_batch,
                clean_wav_batch=None,
                noise_wav_batch=None):
@@ -221,10 +127,6 @@ class Module(object):
     # for lr halving
     self.new_lr = tf.compat.v1.placeholder(tf.float32, name='new_lr')
     self.assign_lr = tf.compat.v1.assign(self._lr, self.new_lr)
-
-    # for reset global_step
-    self.new_step = tf.compat.v1.placeholder(tf.int32, name='new_step')
-    self.assign_step = tf.compat.v1.assign(self._global_step, self.new_step)
 
     # for lr warmup
     if PARAM.use_lr_warmup:
@@ -369,87 +271,6 @@ class Module(object):
     return est_clean_mag_batch, est_clean_spec_batch, est_clean_wav_batch
 
 
-  def post_real_networks_forward(self, input_mag_batch,  mixed_angle_batch, mixed_wav_len):
-    assert PARAM.post_lstm_layers > 0, 'hybired rr model require PARAM.post_lstm_layers > 0 to use complex value post net'
-    training = (self.mode == PARAM.MODEL_TRAIN_KEY)
-
-    if PARAM.complex_clip_mag is True:
-      input_mag_batch = tf.clip_by_value(input_mag_batch, 0.0, float(PARAM.complex_clip_mag_max))
-    input_spec_batch = tf.complex(input_mag_batch, 0.0) * tf.exp(tf.complex(0.0, mixed_angle_batch))
-
-    outputs = tf.concat([tf.math.real(input_spec_batch), tf.math.imag(input_spec_batch)],
-                        axis=-1)
-    _batch_size = tf.shape(outputs)[0]
-    # print(outputs.shape.as_list(), 'cnn_shape')
-
-    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.fft_dot*2])
-
-    # CLSTM
-    for blstm in self.variables.post_real_layers[:-1]:
-      outputs = blstm(outputs, training=training)
-
-    # CFC
-    outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL*2])
-    outputs = self.variables.post_real_layers[-1](outputs)
-    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.fft_dot*2])
-    outputs_real, outputs_imag = tf.split(outputs, 2, axis=-1)
-    outputs = tf.complex(outputs_real, outputs_imag)
-
-    if PARAM.post_complex_net_output == 'cmask': # cmask, cresidual, cspec
-      est_clean_spec_batch = tf.multiply(outputs, input_spec_batch)
-    elif PARAM.post_complex_net_output == 'cresidual':
-      est_clean_spec_batch = tf.add(outputs, input_spec_batch)
-    elif PARAM.post_complex_net_output == 'cspec':
-      est_clean_spec_batch = outputs
-
-    _mixed_wav_len = mixed_wav_len
-    _est_clean_wav_batch = misc_utils.tf_batch_istft(est_clean_spec_batch, PARAM.frame_length, PARAM.frame_step)
-    est_clean_wav_batch = tf.slice(_est_clean_wav_batch, [0,0], [-1, _mixed_wav_len]) # if stft.pad_end=True, so est_wav may be longger than mixed.
-
-    est_clean_mag_batch = tf.math.abs(est_clean_spec_batch)
-
-    return est_clean_mag_batch, est_clean_spec_batch, est_clean_wav_batch
-
-
-  def post_complex_networks_forward(self, input_mag_batch, mixed_angle_batch, mixed_wav_len):
-
-    assert PARAM.post_lstm_layers > 0, 'hybired rc model require PARAM.post_lstm_layers > 0 to use complex value post net'
-    training = (self.mode == PARAM.MODEL_TRAIN_KEY)
-
-    if PARAM.complex_clip_mag is True:
-      input_mag_batch = tf.clip_by_value(input_mag_batch, 0.0, float(PARAM.complex_clip_mag_max))
-    input_spec_batch = tf.complex(input_mag_batch, 0.0) * tf.exp(tf.complex(0.0, mixed_angle_batch))
-    outputs = input_spec_batch
-    _batch_size = tf.shape(outputs)[0]
-    # print(outputs.shape.as_list(), 'cnn_shape')
-
-    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.fft_dot])
-
-    # CLSTM
-    for blstm in self.variables.post_complex_layers[:-1]:
-      outputs = blstm(outputs, training=training)
-
-    # CFC
-    outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL*2])
-    outputs = self.variables.post_complex_layers[-1](outputs)
-    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.fft_dot])
-
-    if PARAM.post_complex_net_output == 'cmask': # cmask, cresidual, cspec
-      est_clean_spec_batch = tf.multiply(outputs, input_spec_batch)
-    elif PARAM.post_complex_net_output == 'cresidual':
-      est_clean_spec_batch = tf.add(outputs, input_spec_batch)
-    elif PARAM.post_complex_net_output == 'cspec':
-      est_clean_spec_batch = outputs
-
-    _mixed_wav_len = mixed_wav_len
-    _est_clean_wav_batch = misc_utils.tf_batch_istft(est_clean_spec_batch, PARAM.frame_length, PARAM.frame_step)
-    est_clean_wav_batch = tf.slice(_est_clean_wav_batch, [0,0], [-1, _mixed_wav_len]) # if stft.pad_end=True, so est_wav may be longger than mixed.
-
-    est_clean_mag_batch = tf.math.abs(est_clean_spec_batch)
-
-    return est_clean_mag_batch, est_clean_spec_batch, est_clean_wav_batch
-
-
   def clean_and_enhanced_mag_discriminator(self, clean_mag_batch, est_mag_batch):
     deep_features = []
     training = (self.mode == PARAM.MODEL_TRAIN_KEY)
@@ -501,65 +322,6 @@ class Module(object):
     return logits, onehot_labels, deep_features
 
 
-  def CCNN_CRNN_CFC(self, mixed_spec_batch, training=False):
-    mixed_spec_batch = tf.expand_dims(mixed_spec_batch, -1) # [batch, time, fft_dot, 1]
-    outputs = mixed_spec_batch
-    _batch_size = tf.shape(outputs)[0]
-    # print(outputs.shape.as_list(), 'cnn_shape')
-
-    # CNN
-    for conv2d in self.variables.conv2d_layers:
-      outputs = conv2d(outputs)
-      # print(outputs.shape.as_list(), 'cnn_shape')
-    if len(self.variables.conv2d_layers) > 0:
-      outputs = tf.squeeze(outputs, [-1]) # [batch, time, fft_dot]
-
-    # print(outputs.shape.as_list())
-    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.fft_dot])
-
-    # CBLSTM
-    for blstm in self.variables.blstm_layers:
-      outputs = blstm(outputs, training=training)
-
-    # CLSTM
-    for lstm in self.variables.lstm_layers:
-      outputs = lstm(outputs, training=training)
-
-    # CFC
-    if len(self.variables.blstm_layers) > 0 and len(self.variables.lstm_layers) <= 0:
-      outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL*2])
-    else:
-      outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL])
-    outputs = self.variables.out_fc(outputs)
-    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.fft_dot])
-    return outputs
-
-
-  def complex_networks_forward(self, mixed_wav_batch):
-    mixed_spec_batch = misc_utils.tf_batch_stft(mixed_wav_batch, PARAM.frame_length, PARAM.frame_step)
-    training = (self.mode == PARAM.MODEL_TRAIN_KEY)
-    # clip mag
-    if PARAM.complex_clip_mag is True:
-      mixed_mag_batch = tf.abs(mixed_spec_batch)
-      # self.debug_mag = mixed_mag_batch
-      mixed_angle_batch = tf.angle(mixed_spec_batch)
-      mixed_mag_batch = tf.clip_by_value(mixed_mag_batch, 0.0, float(PARAM.complex_clip_mag_max))
-      mixed_spec_batch = tf.complex(mixed_mag_batch, 0.0) * tf.exp(tf.complex(0.0, mixed_angle_batch))
-
-    complex_mask = self.CCNN_CRNN_CFC(mixed_spec_batch, training)
-    if PARAM.net_out_mask:
-      est_clean_spec_batch = c_ops.tf_complex_multiply(complex_mask, mixed_spec_batch) # mag estimated
-    else:
-      est_clean_spec_batch = complex_mask
-    _mixed_wav_len = tf.shape(mixed_wav_batch)[-1]
-    _est_clean_wav_batch = misc_utils.tf_batch_istft(est_clean_spec_batch, PARAM.frame_length, PARAM.frame_step)
-    est_clean_wav_batch = tf.slice(_est_clean_wav_batch, [0,0], [-1, _mixed_wav_len]) # if stft.pad_end=True, so est_wav may be longger than mixed.
-
-    est_clean_mag_batch = tf.math.abs(est_clean_spec_batch)
-
-    return est_clean_mag_batch, est_clean_spec_batch, est_clean_wav_batch
-
-
   @abc.abstractmethod
   def forward(self, mixed_wav_batch):
     """
@@ -598,9 +360,6 @@ class Module(object):
 
   def change_lr(self, sess, new_lr):
     sess.run(self.assign_lr, feed_dict={self.new_lr:new_lr})
-
-  def change_global_step(self, sess, new_step):
-    sess.run(self.assign_step, feed_dict={self.new_step:new_step})
 
   @property
   def mixed_wav_batch_in(self):

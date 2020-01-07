@@ -234,13 +234,12 @@ class Module(object):
     elif PARAM.feature_type == "DCT":
       mixed_mag_batch = mixed_spec_batch
     training = (self.mode == PARAM.MODEL_TRAIN_KEY)
+    input_feature = mixed_mag_batch
 
     if PARAM.add_FeatureTrans_in_SE_inputs:
-      mixed_mag_FT_batch = self.variables.FeatureTransformer(mixed_mag_batch)
-    else:
-      mixed_mag_FT_batch = mixed_mag_batch
+      input_feature = self.variables.FeatureTransformer(mixed_mag_batch)
 
-    mask = self.CNN_RNN_FC(mixed_mag_FT_batch, training)
+    mask = self.CNN_RNN_FC(input_feature, training)
 
     if PARAM.net_out_mask:
       est_clean_mag_batch = tf.multiply(mask, mixed_mag_batch) # mag estimated

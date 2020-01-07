@@ -6,7 +6,6 @@ from typing import Union
 from ..FLAGS import PARAM
 from ..utils import losses
 from ..utils import misc_utils
-from ..utils import complex_value_ops as c_ops
 
 
 class RealVariables(object):
@@ -44,18 +43,6 @@ class RealVariables(object):
       blstm = tf.keras.layers.Bidirectional(layer=forward_lstm, backward_layer=backward_lstm,
                                             merge_mode='concat', name='se_net/blstm_%d' % i)
       self.blstm_layers.append(blstm)
-    # self.blstm_layers = []
-    # if PARAM.blstm_layers > 0:
-    #   forward_lstm = tf.keras.layers.RNN(
-    #       [tf.keras.layers.LSTMCell(
-    #           self.N_RNN_CELL, dropout=0.2, name="lstm_%d" % i) for i in range(PARAM.blstm_layers)],
-    #       return_sequences=True, name="fwlstm")
-    #   backward_lstm = tf.keras.layers.RNN(
-    #       [tf.keras.layers.LSTMCell(
-    #           self.N_RNN_CELL, dropout=0.2, name="lstm_%d" % i) for i in range(PARAM.blstm_layers)],
-    #       return_sequences=True, name="bwlstm", go_backwards=True)
-    #   self.blstm_layers.append(tf.keras.layers.Bidirectional(layer=forward_lstm, backward_layer=backward_lstm,
-    #                                                          merge_mode='concat', name='blstm'))
 
     #LSTM
     self.lstm_layers = []
@@ -68,12 +55,32 @@ class RealVariables(object):
     # FC
     self.out_fc = tf.keras.layers.Dense(PARAM.fft_dot, name='se_net/out_fc')
 
-    # discriminator
-    self.d_denses = [tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_1'),
-                     tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_2'),
-                     tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_3'),
-                     tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_4'),
-                     tf.keras.layers.Dense(2, name='discriminator/d_dense_5')]
+    #### discriminator
+    # self.d_denses = [tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_1'),
+    #                  tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_2'),
+    #                  tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_3'),
+    #                  tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_4'),
+    #                  tf.keras.layers.Dense(2, name='discriminator/d_dense_5')]
+    self.D_blstm_layers = []
+    for i in range(1, PARAM.blstm_layers+1):
+      forward_lstm = tf.keras.layers.LSTM(self.N_RNN_CELL, dropout=0.2,
+                                          implementation=PARAM.rlstmCell_implementation,
+                                          return_sequences=True, name='dfwlstm_%d' % i)
+      backward_lstm = tf.keras.layers.LSTM(self.N_RNN_CELL, dropout=0.2,
+                                           implementation=PARAM.rlstmCell_implementation,
+                                           return_sequences=True, name='dbwlstm_%d' % i, go_backwards=True)
+      blstm = tf.keras.layers.Bidirectional(layer=forward_lstm, backward_layer=backward_lstm,
+                                            merge_mode='concat', name='discriminator/blstm_%d' % i)
+      self.D_blstm_layers.append(blstm)
+
+    self.D_lstm_layers = []
+    for i in range(1, PARAM.lstm_layers+1):
+      lstm = tf.keras.layers.LSTM(self.N_RNN_CELL, dropout=0.2, recurrent_dropout=0.1,
+                                  return_sequences=True, implementation=PARAM.rlstmCell_implementation,
+                                  name='discriminator/lstm_%d' % i)
+      self.Dlstm_layers.append(lstm)
+
+    self.D_out_fc = tf.keras.layers.Dense(2, name='discriminator/out_fc')
 
     # FeatureTransformerLayer
     if PARAM.FT_type == "LogValueT":
@@ -84,7 +91,7 @@ class RealVariables(object):
                                                     initializer=tf.constant(PARAM.f_log_b), trainable=PARAM.f_log_var_trainable)
       self._f_log_a = PARAM.log_filter_eps_a_b + tf.nn.relu(self._f_log_a_var)
       self._f_log_b = PARAM.log_filter_eps_a_b + tf.nn.relu(self._f_log_b_var)
-      self._f_log_c = PARAM.log_filter_eps_c
+      self._f_log_c = tf.constant(PARAM.log_filter_eps_c)
 
       def LogFilter_of_Loss(x,type_=PARAM.LogFilter_type):
         a = self._f_log_a
@@ -96,8 +103,9 @@ class RealVariables(object):
           y = (tf.log(x * b + c) - tf.log(c))/(tf.log(a*b+c)-tf.log(c))
         return y
       self.FeatureTransformer = LogFilter_of_Loss
-    elif PARAM.FT_type == "LinearT":
-      self.FeatureTransformer = self.d_denses[0],
+    elif PARAM.FT_type == "DenseT":
+      self.FeatureTransformer = tf.keras.layers.Dense(self.N_RNN_CELL, activation='tanh',
+                                                      name='FeatureTransformerLayer/FT_Dense')
     else:
       raise NotImplementedError
 
@@ -114,9 +122,16 @@ class Module(object):
                variables: Union[RealVariables],
                mixed_wav_batch,
                clean_wav_batch=None,
-               noise_wav_batch=None):
+               noise_wav_batch=None,
+               noisy_wav_batch_noLabel=None):
     del noise_wav_batch
     self.mixed_wav_batch = mixed_wav_batch
+    if PARAM.use_noLabel_noisy_speech:
+      self.noLabel_noisy_batchsize = tf.shape(noisy_wav_batch_noLabel)[0]
+      self.label_noisy_batchsize = tf.shape(mixed_wav_batch)[0]
+      self.mixed_wav_batch = tf.concat([self.mixed_wav_batch, noisy_wav_batch_noLabel], axis=0)
+    else:
+      del noisy_wav_batch_noLabel
 
     self.variables = variables
     self.mode = mode
@@ -155,7 +170,7 @@ class Module(object):
       self.clean_mag_batch = self.clean_spec_batch # DCT real feat
 
     # losses
-    self._not_transformed_losses, self._d_loss, self._transformed_losses = self.get_loss(forward_outputs)
+    self._not_transformed_losses, self._transformed_losses, self._d_loss = self.get_loss(forward_outputs)
 
     # trainable_variables = tf.compat.v1.trainable_variables()
     self.d_params = tf.compat.v1.trainable_variables(scope='discriminator*')
@@ -190,10 +205,10 @@ class Module(object):
     outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.fft_dot])
 
     # BLSTM
-    self.blstm_outputs = []
+    # self.blstm_outputs = []
     for blstm in self.variables.blstm_layers:
       outputs = blstm(outputs, training=training)
-      self.blstm_outputs.append(outputs)
+      # self.blstm_outputs.append(outputs)
 
     # LSTM
     for lstm in self.variables.lstm_layers:
@@ -221,9 +236,11 @@ class Module(object):
     training = (self.mode == PARAM.MODEL_TRAIN_KEY)
 
     if PARAM.add_FeatureTrans_in_SE_inputs:
-      mixed_mag_batch = self.variables.FeatureTransformer(mixed_mag_batch)
+      mixed_mag_FT_batch = self.variables.FeatureTransformer(mixed_mag_batch)
+    else:
+      mixed_mag_FT_batch = mixed_mag_batch
 
-    mask = self.CNN_RNN_FC(mixed_mag_batch, training)
+    mask = self.CNN_RNN_FC(mixed_mag_FT_batch, training)
 
     if PARAM.net_out_mask:
       est_clean_mag_batch = tf.multiply(mask, mixed_mag_batch) # mag estimated
@@ -253,6 +270,7 @@ class Module(object):
 
     # Features Transformer
     outputs = self.variables.FeatureTransformer(outputs)
+    _batch_size = outputs.shape[0]
 
     # deep_features.append(outputs) # [batch*2, time, f]
     if PARAM.frame_level_D:
@@ -265,27 +283,41 @@ class Module(object):
     onehot_labels = tf.one_hot(labels, 2)
     # print(outputs.shape.as_list(), ' dddddddddddddddddddddd test shape')
 
-    outputs1 = self.variables.d_denses[0](outputs) # [batch*2, time, fea]
-    deep_features.append(outputs1) # [batch*2 time f]
+    # outputs1 = self.variables.d_denses[0](outputs) # [batch*2, time, fea]
+    # deep_features.append(outputs1) # [batch*2 time f]
 
-    outputs2 = self.variables.d_denses[1](outputs1) # [batch*2, time, f]
-    if training:
-      outputs2 = tf.nn.dropout(outputs2, keep_prob=PARAM.D_keep_prob)
-    deep_features.append(outputs2)
+    # outputs2 = self.variables.d_denses[1](outputs1) # [batch*2, time, f]
+    # if training:
+    #   outputs2 = tf.nn.dropout(outputs2, keep_prob=PARAM.D_keep_prob)
+    # deep_features.append(outputs2)
 
-    outputs3 = self.variables.d_denses[2](outputs2)
-    deep_features.append(outputs3)
+    # outputs3 = self.variables.d_denses[2](outputs2)
+    # deep_features.append(outputs3)
 
-    # inputs4 = tf.concat([outputs3, outputs2], axis=-1)
-    inputs4 = outputs3
-    outputs4 = self.variables.d_denses[3](inputs4)
-    if training:
-      outputs4 = tf.nn.dropout(outputs4, keep_prob=PARAM.D_keep_prob)
-    deep_features.append(outputs4)
+    # # inputs4 = tf.concat([outputs3, outputs2], axis=-1)
+    # inputs4 = outputs3
+    # outputs4 = self.variables.d_denses[3](inputs4)
+    # if training:
+    #   outputs4 = tf.nn.dropout(outputs4, keep_prob=PARAM.D_keep_prob)
+    # deep_features.append(outputs4)
 
-    # inputs5 = tf.concat([outputs4, outputs1], axis=-1)
-    inputs5 = outputs4
-    logits = self.variables.d_denses[4](inputs5)
+    # # inputs5 = tf.concat([outputs4, outputs1], axis=-1)
+    # inputs5 = outputs4
+    # logits = self.variables.d_denses[4](inputs5)
+
+    for blstm in self.variables.D_blstm_layers:
+      outputs = blstm(outputs, training=training)
+
+    for lstm in self.variables.D_lstm_layers:
+      outputs = lstm(outputs, training=training)
+
+    # FC
+    if len(self.variables.D_blstm_layers) > 0 and len(self.variables.D_lstm_layers) <= 0:
+      outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL*2])
+    else:
+      outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL])
+    outputs = self.variables.D_out_fc(outputs)
+    logits = tf.reshape(outputs, [_batch_size, -1, 2])
     return logits, onehot_labels, deep_features
 
 
@@ -305,7 +337,7 @@ class Module(object):
   def get_loss(self, forward_outputs):
     """
     Returns:
-      loss
+      not_transformed_loss, transformed_loss, d_loss
     """
     import traceback
     traceback.print_exc()

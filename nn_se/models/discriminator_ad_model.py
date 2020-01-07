@@ -78,6 +78,7 @@ class DISCRIMINATOR_AD_MODEL(Module):
 
 
     all_clipped_grads, _ = tf.clip_by_global_norm(all_grads, PARAM.max_gradient_norm)
+    self.optimizer = tf.compat.v1.train.AdamOptimizer(self._lr)
     self._train_op = self.optimizer.apply_gradients(zip(all_clipped_grads, all_params),
                                                     global_step=self.global_step)
 
@@ -100,6 +101,14 @@ class DISCRIMINATOR_AD_MODEL(Module):
   def get_not_transformed_loss(self, forward_outputs):
     clean_mag_batch_label = self.clean_mag_batch
     r_est_clean_mag_batch, r_est_clean_spec_batch, r_est_clean_wav_batch = forward_outputs
+
+    if PARAM.use_noLabel_noisy_speech: # delete noLabel data
+      r_est_clean_mag_batch, _ = tf.split(r_est_clean_mag_batch,
+                                          [self.label_noisy_batchsize, self.noLabel_noisy_batchsize], axis=0)
+      r_est_clean_spec_batch, _ = tf.split(r_est_clean_spec_batch,
+                                           [self.label_noisy_batchsize, self.noLabel_noisy_batchsize], axis=0)
+      r_est_clean_wav_batch, _ = tf.split(r_est_clean_wav_batch,
+                                          [self.label_noisy_batchsize, self.noLabel_noisy_batchsize], axis=0)
 
     # not_transformed_losses
     self.loss_mag_mse = losses.batch_time_fea_real_mse(r_est_clean_mag_batch, clean_mag_batch_label)
@@ -148,15 +157,18 @@ class DISCRIMINATOR_AD_MODEL(Module):
   def get_transformed_loss(self, forward_outputs):
     clean_mag_batch_label = self.clean_mag_batch
     r_est_clean_mag_batch, _, _ = forward_outputs
+    if PARAM.use_noLabel_noisy_speech: # delete noLabel data
+      r_est_clean_mag_batch, _ = tf.split(r_est_clean_mag_batch,
+                                          [self.label_noisy_batchsize, self.noLabel_noisy_batchsize], axis=0)
 
     # feature transformer
     clean_mag_batch_label = self.variables.FeatureTransformer(clean_mag_batch_label)
     r_est_clean_mag_batch = self.variables.FeatureTransformer(r_est_clean_mag_batch)
 
     # not_transformed_losses
-    self.loss_mag_mse = losses.batch_time_fea_real_mse(r_est_clean_mag_batch, clean_mag_batch_label)
-    self.loss_reMagMse = losses.batch_real_relativeMSE(r_est_clean_mag_batch, clean_mag_batch_label,
-                                                       PARAM.relative_loss_epsilon)
+    self.FTloss_mag_mse = losses.batch_time_fea_real_mse(r_est_clean_mag_batch, clean_mag_batch_label)
+    self.FTloss_reMagMse = losses.batch_real_relativeMSE(r_est_clean_mag_batch, clean_mag_batch_label,
+                                                         PARAM.relative_loss_epsilon)
     # engregion losses
 
     loss = 0
@@ -164,20 +176,22 @@ class DISCRIMINATOR_AD_MODEL(Module):
 
     for i, name in enumerate(loss_names):
       loss_t = {
-        'loss_mag_mse': self.loss_mag_mse,
-        'loss_reMagMse': self.loss_reMagMse,
+        'FTloss_mag_mse': self.FTloss_mag_mse,
+        'FTloss_reMagMse': self.FTloss_reMagMse,
       }[name]
       if len(PARAM.Tloss_weight) > 0:
         loss_t *= PARAM.Tloss_weight[i]
       loss += loss_t
-
-
-
-    # w_DFL_ref_DLoss = 1.0/(1.0+tf.exp(tf.stop_gradient(loss)*40.0-4.0))
-    # w_DFL_ref_DLoss = tf.nn.sigmoid(4.0-tf.stop_gradient(loss)*PARAM.D_strict_degree_for_DFL)
-    # if PARAM.weighted_DFL_by_DLoss:
-    #   deep_features_losses = [dfloss*w_DFL_ref_DLoss for dfloss in deep_features_losses]
     return loss
 
-  def get_loss():
-    pass
+  def get_loss(self, forward_outputs):
+    _not_transformed_losses = self.get_not_transformed_loss(forward_outputs)
+    _transformed_losses = self.get_transformed_loss(forward_outputs)
+    _d_loss = self.get_discriminator_loss(forward_outputs)
+
+    if PARAM.weighted_FTL_by_DLoss:
+      # w_FTL_ref_DLoss = 1.0/(1.0+tf.exp(tf.stop_gradient(loss)*40.0-4.0))
+      w_FTL_ref_DLoss = tf.nn.sigmoid(4.0-tf.stop_gradient(_d_loss)*PARAM.D_strict_degree_for_FTL)
+      _transformed_losses = _transformed_losses * w_FTL_ref_DLoss
+
+    return _not_transformed_losses, _transformed_losses, _d_loss

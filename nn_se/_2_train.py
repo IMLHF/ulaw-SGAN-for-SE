@@ -8,7 +8,6 @@ import sys
 
 
 from .models import model_builder
-from .models import real_mask_model
 from .models import modules
 from .dataloader import dataloader
 from .utils import misc_utils
@@ -46,17 +45,12 @@ def train_one_epoch(sess, train_model, train_log_file,
     'loss_reWavL2': train_model.loss_reWavL2,
     'loss_sdrV1': train_model.loss_sdrV1,
     'loss_sdrV2': train_model.loss_sdrV2,
-    'losssdrV3': train_model.losssdrV3,
     'loss_cosSimV1': train_model.loss_cosSimV1,
-    'loss_cosSimV1WT10': train_model.loss_cosSimV1WT10,
     'loss_cosSimV2': train_model.loss_cosSimV2,
-    'lossspecTCosSimV1': train_model.lossspecTCosSimV1,
-    'lossspecFCosSimV1': train_model.lossspecFCosSimV1,
-    'lossspecTFCosSimV1': train_model.lossspecTFCosSimV1,
     'loss_stSDRV3': train_model.loss_stSDRV3,
     'd_loss': train_model.d_loss,
-    'deep_features_loss': train_model._deep_features_loss,
-    'deep_features_losses': train_model._deep_features_losses,
+    'FTloss_mag_mse': train_model.FTloss_mag_mse,
+    'FTloss_reMagMse': train_model.FTloss_reMagMse,
   }
   # show_losses = PARAM.show_losses if PARAM.show_losses is not None else PARAM.loss_name
   # stop_criterion_losses = PARAM.stop_criterion_losses if PARAM.stop_criterion_losses is not None else PARAM.loss_name
@@ -152,17 +146,12 @@ def eval_one_epoch(sess, val_model, stop_criterion_losses, show_losses):
     'loss_reWavL2': val_model.loss_reWavL2,
     'loss_sdrV1': val_model.loss_sdrV1,
     'loss_sdrV2': val_model.loss_sdrV2,
-    'losssdrV3': val_model.losssdrV3,
     'loss_cosSimV1': val_model.loss_cosSimV1,
-    'loss_cosSimV1WT10': val_model.loss_cosSimV1WT10,
     'loss_cosSimV2': val_model.loss_cosSimV2,
-    'lossspecTCosSimV1': val_model.lossspecTCosSimV1,
-    'lossspecFCosSimV1': val_model.lossspecFCosSimV1,
-    'lossspecTFCosSimV1': val_model.lossspecTFCosSimV1,
     'loss_stSDRV3': val_model.loss_stSDRV3,
     'd_loss': val_model.d_loss,
-    'deep_features_loss': val_model._deep_features_loss,
-    'deep_features_losses': val_model._deep_features_losses,
+    'FTloss_mag_mse': val_model.FTloss_mag_mse,
+    'FTloss_reMagMse': val_model.FTloss_reMagMse,
   }
   # show_losses = PARAM.show_losses if PARAM.show_losses is not None else PARAM.loss_name
   # stop_criterion_losses = PARAM.stop_criterion_losses if PARAM.stop_criterion_losses is not None else PARAM.loss_name

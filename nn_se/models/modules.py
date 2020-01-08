@@ -125,11 +125,12 @@ class Module(object):
                noise_wav_batch=None,
                noisy_wav_batch_noLabel=None):
     del noise_wav_batch
-    self.mixed_wav_batch = mixed_wav_batch
+    self.mixed_wav_batch = mixed_wav_batch # for placeholder
+    mixed_wav_batch_extend = mixed_wav_batch
     if PARAM.use_noLabel_noisy_speech:
-      self.noLabel_noisy_batchsize = tf.shape(noisy_wav_batch_noLabel)[0]
       self.label_noisy_batchsize = tf.shape(mixed_wav_batch)[0]
-      self.mixed_wav_batch = tf.concat([self.mixed_wav_batch, noisy_wav_batch_noLabel], axis=0)
+      self.noLabel_noisy_batchsize = tf.shape(noisy_wav_batch_noLabel)[0]
+      mixed_wav_batch_extend = tf.concat([mixed_wav_batch, noisy_wav_batch_noLabel], axis=0)
     else:
       del noisy_wav_batch_noLabel
 
@@ -150,27 +151,26 @@ class Module(object):
       self._lr = misc_utils.noam_scheme(self._lr, self.global_step, warmup_steps=PARAM.warmup_steps)
 
     # nn forward
-    forward_outputs = self.forward(mixed_wav_batch)
+    forward_outputs = self.forward(mixed_wav_batch_extend)
     self._est_clean_wav_batch = forward_outputs[-1]
 
-    if mode == PARAM.MODEL_INFER_KEY:
-      return
+    # get label and loss
+    if mode != PARAM.MODEL_INFER_KEY:
+      # labels
+      self.clean_wav_batch = clean_wav_batch
+      self.clean_spec_batch = misc_utils.tf_batch_stft(clean_wav_batch, PARAM.frame_length, PARAM.frame_step) # complex label
+      # self.noise_wav_batch = mixed_wav_batch - clean_wav_batch
+      # self.noise_spec_batch = misc_utils.tf_batch_stft(self.noise_wav_batch, PARAM.frame_length, PARAM.frame_step)
+      # self.nosie_mag_batch = tf.math.abs(self.noise_spec_batch)
+      if PARAM.use_wav_as_feature:
+        self.clean_mag_batch = self.clean_spec_batch
+      elif PARAM.feature_type == "DFT":
+        self.clean_mag_batch = tf.math.abs(self.clean_spec_batch) # mag label
+      elif PARAM.feature_type == "DCT":
+        self.clean_mag_batch = self.clean_spec_batch # DCT real feat
 
-    # labels
-    self.clean_wav_batch = clean_wav_batch
-    self.clean_spec_batch = misc_utils.tf_batch_stft(clean_wav_batch, PARAM.frame_length, PARAM.frame_step) # complex label
-    # self.noise_wav_batch = mixed_wav_batch - clean_wav_batch
-    # self.noise_spec_batch = misc_utils.tf_batch_stft(self.noise_wav_batch, PARAM.frame_length, PARAM.frame_step)
-    # self.nosie_mag_batch = tf.math.abs(self.noise_spec_batch)
-    if PARAM.use_wav_as_feature:
-      self.clean_mag_batch = self.clean_spec_batch
-    elif PARAM.feature_type == "DFT":
-      self.clean_mag_batch = tf.math.abs(self.clean_spec_batch) # mag label
-    elif PARAM.feature_type == "DCT":
-      self.clean_mag_batch = self.clean_spec_batch # DCT real feat
-
-    # losses
-    self._not_transformed_losses, self._transformed_losses, self._d_loss = self.get_loss(forward_outputs)
+      # losses
+      self._not_transformed_losses, self._transformed_losses, self._d_loss = self.get_loss(forward_outputs)
 
     # trainable_variables = tf.compat.v1.trainable_variables()
     self.d_params = tf.compat.v1.trainable_variables(scope='discriminator*')
@@ -184,7 +184,8 @@ class Module(object):
 
     if mode == PARAM.MODEL_VALIDATE_KEY:
       return
-
+    if mode == PARAM.MODEL_INFER_KEY:
+      return
 
   def CNN_RNN_FC(self, mixed_mag_batch, training=False):
     outputs = tf.expand_dims(mixed_mag_batch, -1) # [batch, time, fft_dot, 1]
@@ -224,8 +225,8 @@ class Module(object):
     return outputs
 
 
-  def real_networks_forward(self, mixed_wav_batch):
-    mixed_spec_batch = misc_utils.tf_batch_stft(mixed_wav_batch, PARAM.frame_length, PARAM.frame_step)
+  def real_networks_forward(self, mixed_wav_batch_extend):
+    mixed_spec_batch = misc_utils.tf_batch_stft(mixed_wav_batch_extend, PARAM.frame_length, PARAM.frame_step)
     if PARAM.use_wav_as_feature:
       mixed_mag_batch = mixed_spec_batch
     elif PARAM.feature_type == "DFT":
@@ -255,7 +256,7 @@ class Module(object):
       est_clean_spec_batch = tf.complex(est_clean_mag_batch, 0.0) * tf.exp(tf.complex(0.0, self.mixed_angle_batch)) # complex
     elif PARAM.feature_type == "DCT":
       est_clean_spec_batch = est_clean_mag_batch
-    _mixed_wav_len = tf.shape(mixed_wav_batch)[-1]
+    _mixed_wav_len = tf.shape(mixed_wav_batch_extend)[-1]
     _est_clean_wav_batch = misc_utils.tf_batch_istft(est_clean_spec_batch, PARAM.frame_length, PARAM.frame_step)
     est_clean_wav_batch = tf.slice(_est_clean_wav_batch, [0,0], [-1, _mixed_wav_len]) # if stft.pad_end=True, so est_wav may be longger than mixed.
 
@@ -321,7 +322,7 @@ class Module(object):
 
 
   @abc.abstractmethod
-  def forward(self, mixed_wav_batch):
+  def forward(self, mixed_wav_batch_extend):
     """
     Returns:
       forward_outputs: pass to get_loss
@@ -360,12 +361,12 @@ class Module(object):
     sess.run(self.assign_lr, feed_dict={self.new_lr:new_lr})
 
   @property
-  def mixed_wav_batch_in(self):
-    return self.mixed_wav_batch
-
-  @property
   def global_step(self):
     return self._global_step
+
+  @property
+  def mixed_wav_batch_in(self):
+    return self.mixed_wav_batch
 
   @property
   def train_op(self):

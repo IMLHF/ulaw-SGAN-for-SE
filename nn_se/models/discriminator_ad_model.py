@@ -83,8 +83,8 @@ class DISCRIMINATOR_AD_MODEL(Module):
                                                     global_step=self.global_step)
 
 
-  def forward(self, mixed_wav_batch):
-    r_outputs = self.real_networks_forward(mixed_wav_batch)
+  def forward(self, mixed_wav_batch_extend):
+    r_outputs = self.real_networks_forward(mixed_wav_batch_extend)
     r_est_clean_mag_batch, r_est_clean_spec_batch, r_est_clean_wav_batch = r_outputs
 
     return r_est_clean_mag_batch, r_est_clean_spec_batch, r_est_clean_wav_batch

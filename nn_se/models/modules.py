@@ -311,13 +311,18 @@ class Module(object):
     for lstm in self.variables.D_lstm_layers:
       outputs = lstm(outputs, training=training)
 
+    if not PARAM.frame_level_D:
+      outputs = outputs[:,-1,:]
+
     # FC
     if len(self.variables.D_blstm_layers) > 0 and len(self.variables.D_lstm_layers) <= 0:
       outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL*2])
     else:
       outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL])
     outputs = self.variables.D_out_fc(outputs)
-    logits = tf.reshape(outputs, [_batch_size, -1, 2])
+    logits = outputs
+    if PARAM.frame_level_D:
+      logits = tf.reshape(outputs, [_batch_size, -1, 2])
     return logits, onehot_labels, deep_features
 
 

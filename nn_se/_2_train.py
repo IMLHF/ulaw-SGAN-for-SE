@@ -65,7 +65,6 @@ def train_one_epoch(sess, train_model, train_log_file,
     losses_to_run.extend([
         train_model.variables._f_log_a,
         train_model.variables._f_log_b,
-        train_model.variables._f_log_c,
     ])
 
   while True:
@@ -73,8 +72,8 @@ def train_one_epoch(sess, train_model, train_log_file,
       run_out_losses = sess.run(losses_to_run)
 
       if PARAM.FT_type == "LogValueT" and "transformed_losses" in PARAM.losses_position:
-        a,b,c = run_out_losses[-3:] # debug
-        run_out_losses = run_out_losses[:-3]
+        a,b,c = run_out_losses[-2:] # debug
+        run_out_losses = run_out_losses[:-2]
 
       _, lr, global_step = run_out_losses[:3]
       runOut_show_losses = run_out_losses[3:len(show_losses)+3]
@@ -90,8 +89,8 @@ def train_one_epoch(sess, train_model, train_log_file,
       tr_loss += sum_loss_stopCriterion
       i += 1
       print("\r", end="")
-      abc = "#(a %.4f b %.4f c %.2e)" % (
-          a, b, c) if PARAM.FT_type == "LogValueT" and "transformed_losses" in PARAM.losses_position else "          "
+      abc = "#(a %.4f b %.4f)" % (
+          a, b) if PARAM.FT_type == "LogValueT" and "transformed_losses" in PARAM.losses_position else "          "
       print("train: %d/%d, cost %.2fs, stop_loss %.2f, single_losses %s %s" % (
             i, total_i, time.time()-one_batch_time, sum_loss_stopCriterion,
             str(runOut_show_losses), abc),

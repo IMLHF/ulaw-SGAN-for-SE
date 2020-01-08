@@ -86,6 +86,9 @@ class BaseConfig(StaticKey):
   frame_level_D = True # discriminate frame is noisy or clean
   losses_position = ["not_transformed_losses", "transformed_losses"]
   FT_type = "LogValueT" # feature transformer type: "LogValueT", "FrequencyScaleT", "DenseT"
+  # melMat: tf.contrib.signal.linear_to_mel_weight_matrix(129,129,8000,125,3900)
+  # plt.pcolormesh
+  # import matplotlib.pyplot as plt
 
   """
   @param not_transformed_losses/transformed_losses[add FT before loss_name]:
@@ -111,11 +114,10 @@ class BaseConfig(StaticKey):
   feature_type = "DFT" # DFT | DCT | QCT
 
   add_FeatureTrans_in_SE_inputs = False
-  LogFilter_type = 2
-  f_log_a = 1.0
-  f_log_b = 0.0001
+  LogFilter_type = 3
+  f_log_a = 1.0 # smaller, curve max smaller
+  f_log_b = 0.001 # smaller, curve straighter
   log_filter_eps_a_b = 1e-6
-  log_filter_eps_c = 0.001
   f_log_var_trainable = True
 
   use_noLabel_noisy_speech = False
@@ -172,6 +174,23 @@ class se_FTMagMSE_LogVT001_complexD(p40): # running p40
   stop_criterion_losses = ['loss_mag_mse']
   show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
 
-PARAM = se_FTMagMSE_LogVT001_complexD
+class se_FTMagMSE_LogVT001_complexNotFrameD(p40): # running p40
+  '''
+  LogVT
+  '''
+  GPU_PARTION = 0.45
+  losses_position = ['transformed_losses']
+  # not_transformed_losses = ['loss_mag_mse']
+  transformed_losses = ['FTloss_mag_mse']
+  FT_type = 'LogValueT'
+  weighted_FTL_by_DLoss = False
+  add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_mag_mse']
+  show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
+
+  frame_level_D = False
+
+PARAM = se_FTMagMSE_LogVT001_complexNotFrameD
 
 # CUDA_VISIBLE_DEVICES=2 OMP_NUM_THREADS=4 python -m xxx._2_train

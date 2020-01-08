@@ -91,16 +91,14 @@ class RealVariables(object):
                                                     initializer=tf.constant(PARAM.f_log_b), trainable=PARAM.f_log_var_trainable)
       self._f_log_a = PARAM.log_filter_eps_a_b + tf.nn.relu(self._f_log_a_var)
       self._f_log_b = PARAM.log_filter_eps_a_b + tf.nn.relu(self._f_log_b_var)
-      self._f_log_c = tf.constant(PARAM.log_filter_eps_c)
 
       def LogFilter_of_Loss(x,type_=PARAM.LogFilter_type):
         a = self._f_log_a
         b = self._f_log_b
-        c = self._f_log_c
-        if type_ == 1:
-          y = (tf.log(x * b + c) - tf.log(c))*a
-        elif type_ == 2:
-          y = (tf.log(x * b + c) - tf.log(c))/(tf.log(a*b+c)-tf.log(c))
+        if type_ == 1: # u-low transformer
+          y = tf.log(x * b + 1.0 + 0.0*a) / tf.log(b + 1.0)
+        elif type_ ==2: # modified u-low transformer
+          y = tf.log(x * b + 1.0) / tf.log(a * b + 1.0)
         return y
       self.FeatureTransformer = LogFilter_of_Loss
     elif PARAM.FT_type == "DenseT":

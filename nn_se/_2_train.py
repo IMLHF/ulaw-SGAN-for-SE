@@ -50,7 +50,7 @@ def train_one_epoch(sess, train_model, train_log_file,
     'loss_stSDRV3': train_model.loss_stSDRV3,
     'd_loss': train_model.d_loss,
     'FTloss_mag_mse': train_model.FTloss_mag_mse,
-    'FTloss_reMagMse': train_model.FTloss_reMagMse,
+    'FTloss_mag_RL': train_model.FTloss_mag_RL,
   }
   # show_losses = PARAM.show_losses if PARAM.show_losses is not None else PARAM.loss_name
   # stop_criterion_losses = PARAM.stop_criterion_losses if PARAM.stop_criterion_losses is not None else PARAM.loss_name
@@ -151,7 +151,7 @@ def eval_one_epoch(sess, val_model, stop_criterion_losses, show_losses):
     'loss_stSDRV3': val_model.loss_stSDRV3,
     'd_loss': val_model.d_loss,
     'FTloss_mag_mse': val_model.FTloss_mag_mse,
-    'FTloss_reMagMse': val_model.FTloss_reMagMse,
+    'FTloss_mag_RL': val_model.FTloss_mag_RL,
   }
   # show_losses = PARAM.show_losses if PARAM.show_losses is not None else PARAM.loss_name
   # stop_criterion_losses = PARAM.stop_criterion_losses if PARAM.stop_criterion_losses is not None else PARAM.loss_name

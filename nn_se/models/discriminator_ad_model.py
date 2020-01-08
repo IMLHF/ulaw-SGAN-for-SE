@@ -167,7 +167,7 @@ class DISCRIMINATOR_AD_MODEL(Module):
 
     # not_transformed_losses
     self.FTloss_mag_mse = losses.batch_time_fea_real_mse(r_est_clean_mag_batch, clean_mag_batch_label)
-    self.FTloss_reMagMse = losses.batch_real_relativeMSE(r_est_clean_mag_batch, clean_mag_batch_label,
+    self.FTloss_mag_RL = losses.batch_real_relativeMSE(r_est_clean_mag_batch, clean_mag_batch_label,
                                                          PARAM.relative_loss_epsilon)
     # engregion losses
 
@@ -177,7 +177,7 @@ class DISCRIMINATOR_AD_MODEL(Module):
     for i, name in enumerate(loss_names):
       loss_t = {
         'FTloss_mag_mse': self.FTloss_mag_mse,
-        'FTloss_reMagMse': self.FTloss_reMagMse,
+        'FTloss_mag_RL': self.FTloss_mag_RL,
       }[name]
       if len(PARAM.Tloss_weight) > 0:
         loss_t *= PARAM.Tloss_weight[i]

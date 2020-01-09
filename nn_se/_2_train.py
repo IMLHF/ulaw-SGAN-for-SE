@@ -72,7 +72,7 @@ def train_one_epoch(sess, train_model, train_log_file,
       run_out_losses = sess.run(losses_to_run)
 
       if PARAM.FT_type == "LogValueT" and "transformed_losses" in PARAM.losses_position:
-        a,b,c = run_out_losses[-2:] # debug
+        a,b = run_out_losses[-2:] # debug
         run_out_losses = run_out_losses[:-2]
 
       _, lr, global_step = run_out_losses[:3]

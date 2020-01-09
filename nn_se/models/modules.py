@@ -84,7 +84,7 @@ class RealVariables(object):
 
     # FeatureTransformerLayer
     if PARAM.FT_type == "LogValueT":
-      # linear_coef and log_bias in log features # f = a*[log(bx+c)-log(c)], (a,b,c>0), init:a=1.0,b=0.0001,c=1e-3
+      # linear_coef and log_bias in log features
       self._f_log_a_var = tf.compat.v1.get_variable('FeatureTransformerLayer/f_log_a', dtype=tf.float32, # belong to discriminator
                                                     initializer=tf.constant(PARAM.f_log_a), trainable=PARAM.f_log_var_trainable)
       self._f_log_b_var = tf.compat.v1.get_variable('FeatureTransformerLayer/f_log_b', dtype=tf.float32,
@@ -95,7 +95,9 @@ class RealVariables(object):
       def LogFilter_of_Loss(x,type_=PARAM.LogFilter_type):
         a = self._f_log_a
         b = self._f_log_b
-        if type_ == 1: # u-low transformer
+        if type_ == 0:
+          raise NotImplementedError
+        elif type_ == 1: # u-low transformer
           y = tf.log(x * b + 1.0 + 0.0*a) / tf.log(b + 1.0)
         elif type_ ==2: # modified u-low transformer
           y = tf.log(x * b + 1.0) / tf.log(a * b + 1.0)

@@ -47,11 +47,16 @@ class DISCRIMINATOR_AD_MODEL(Module):
       colocate_gradients_with_ops=True
     )
     d_grads_in_D_Net, _ = tf.clip_by_global_norm(d_grads_in_D_Net, PARAM.max_gradient_norm)
-
-
-    # region d_grads_in_D_net
     d_grads_in_D_Net = [grad*PARAM.discirminator_grad_coef for grad in d_grads_in_D_Net]
-    # endregion d_grads_in_D_net
+
+    ## feature transformer grads
+    d_grads_in_FT = tf.gradients(
+      self._d_loss,
+      self.ft_params,
+      colocate_gradients_with_ops=True
+    )
+    d_grads_in_FT, _ = tf.clip_by_global_norm(d_grads_in_FT, PARAM.max_gradient_norm)
+    d_grads_in_FT = [grad*PARAM.feature_transformer_grad_coef for grad in d_grads_in_FT]
 
     all_grads = []
     all_params = []
@@ -61,18 +66,28 @@ class DISCRIMINATOR_AD_MODEL(Module):
       all_params = self.se_net_params
 
     if "transformed_losses" in PARAM.losses_position:
+      ## FT_grad in se_net
       if len(all_grads)==0:
         all_grads = se_Tloss_grads
         all_params = self.se_net_params
       else:
-        # merge se_grads from se_loss and deep_feature_loss
+        # merge se_grads from se_loss and FT_grad fron FT_loss
         all_grads = [(grad1+grad2)*0.5 for grad1, grad2 in zip(all_grads, se_Tloss_grads)]
 
+      ## d_grad in D_net
       if PARAM.discirminator_grad_coef > 1e-12:
         print('optimizer D')
         # merge d_grads_in_D_Net and D_params
         all_grads = all_grads + d_grads_in_D_Net
-        all_params = self.se_net_params + self.d_params
+        all_params = all_params + self.d_params
+
+      ## d_grads in Feature Transformer
+      if PARAM.feature_transformer_grad_coef > 1e-12:
+        print('optimizer feature transformer')
+        # merge d_grads_in_FT and FT_params
+        all_grads = all_grads + d_grads_in_FT
+        all_params = all_params + self.ft_params
+
 
     assert len(all_grads)>0, "Losses are all turned off."
 
@@ -168,7 +183,7 @@ class DISCRIMINATOR_AD_MODEL(Module):
     # not_transformed_losses
     self.FTloss_mag_mse = losses.batch_time_fea_real_mse(r_est_clean_mag_batch, clean_mag_batch_label)
     self.FTloss_mag_RL = losses.batch_real_relativeMSE(r_est_clean_mag_batch, clean_mag_batch_label,
-                                                         PARAM.relative_loss_epsilon)
+                                                       PARAM.relative_loss_epsilon)
     # engregion losses
 
     loss = 0

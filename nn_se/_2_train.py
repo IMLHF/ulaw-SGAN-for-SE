@@ -89,7 +89,7 @@ def train_one_epoch(sess, train_model, train_log_file,
       tr_loss += sum_loss_stopCriterion
       i += 1
       print("\r", end="")
-      abc = "#(a %.4f b %.4f)" % (
+      abc = "#(a %.2e b %.2e)" % (
           a, b) if PARAM.FT_type == "LogValueT" and "transformed_losses" in PARAM.losses_position else "          "
       print("train: %d/%d, cost %.2fs, stop_loss %.2f, single_losses %s %s" % (
             i, total_i, time.time()-one_batch_time, sum_loss_stopCriterion,

@@ -82,9 +82,9 @@ class RealVariables(object):
 
     self.D_out_fc = tf.keras.layers.Dense(2, name='discriminator/out_fc')
 
-    # FeatureTransformerLayer
-    if PARAM.FT_type == "LogValueT":
-      # linear_coef and log_bias in log features
+    ### FeatureTransformerLayers
+    if "LogValueT" in PARAM.FT_type:
+      ## 1. linear_coef and log_bias in log features
       self._f_log_a_var = tf.compat.v1.get_variable('FeatureTransformerLayer/f_log_a', dtype=tf.float32, # belong to discriminator
                                                     initializer=tf.constant(PARAM.f_log_a), trainable=PARAM.f_log_var_trainable)
       self._f_log_b_var = tf.compat.v1.get_variable('FeatureTransformerLayer/f_log_b', dtype=tf.float32,
@@ -102,12 +102,35 @@ class RealVariables(object):
         elif type_ ==2: # modified u-low transformer
           y = tf.log(x * b + 1.0) / tf.log(a * b + 1.0)
         return y
-      self.FeatureTransformer = LogFilter_of_Loss
-    elif PARAM.FT_type == "DenseT":
-      self.FeatureTransformer = tf.keras.layers.Dense(self.N_RNN_CELL, activation='tanh',
-                                                      name='FeatureTransformerLayer/FT_Dense')
-    else:
-      raise NotImplementedError
+      self.LogFilterT = LogFilter_of_Loss
+
+    if "RandomDenseT" in PARAM.FT_type:
+      ## 2. RandomDenseT
+      self.RandomDenseT = tf.keras.layers.Dense(self.N_RNN_CELL, activation='tanh',
+                                                name='FeatureTransformerLayer/FT_Dense')
+    if "MelDenseT" in PARAM.FT_type:
+      ## 3. MelDenseT
+      melmat_fun = tf.contrib.signal.linear_to_mel_weight_matrix
+      melMatrix = tf.compat.v1.get_variable('FeatureTransformerLayer/FT_MelMat', dtype=tf.float32,
+                                            trainable=True,
+                                            initializer=melmat_fun(PARAM.MelDenseT_n_mel, PARAM.fft_dot,
+                                                                  PARAM.sampling_rate, 0, PARAM.sampling_rate//2))
+      def stft2mel(x):
+        return tf.matmul(x, melMatrix)
+      self.MelDenseT = stft2mel
+
+    def FeatureTransformer(x):
+      for ft_type in PARAM.FT_type:
+        if ft_type == "LogValueT":
+          x = self.LogFilterT(x)
+        elif ft_type == "RandomDenseT":
+          x = self.RandomDenseT(x)
+        elif ft_type == "MelDenseT":
+          x = self.MelDenseT(x)
+        else:
+          raise NotImplementedError
+      return x
+    self.FeatureTransformer = FeatureTransformer
 
 
 class Module(object):

@@ -105,6 +105,7 @@ class BaseConfig(StaticKey):
 
   # just for "DISCRIMINATOR_AD_MODEL"
   discirminator_grad_coef = 1.0
+  D_loss_coef = 1.0
 
   cnn_shortcut = None # None | "add" | "multiply"
 
@@ -261,7 +262,7 @@ class se_FTMagRL0_020_ulawM_FTin(p40): # done p40
   LogFilter_type = 2
   relative_loss_epsilon = 0.02 ####
 
-class se_FTMagMSE_100Gulaw(p40): # running p40
+class se_FTMagMSE_100Gulaw(p40): # done p40
   '''
   u-low LogVT
   '''
@@ -279,7 +280,44 @@ class se_FTMagMSE_100Gulaw(p40): # running p40
   LogFilter_type = 1 ####
   feature_transformer_grad_coef = 100.0
 
-class se_FTMagMSE_100GulawM(p40): # running p40
+class se_FTMagMSE_1000Gulaw(p40): # running p40
+  '''
+  u-low LogVT
+  '''
+  GPU_PARTION = 0.45
+  losses_position = ['transformed_losses']
+  # not_transformed_losses = ['loss_mag_mse']
+  transformed_losses = ['FTloss_mag_mse']
+  FT_type = 'LogValueT'
+  weighted_FTL_by_DLoss = False
+  add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_mag_mse']
+  show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
+
+  LogFilter_type = 1 ####
+  feature_transformer_grad_coef = 1000.0
+
+class se_FTMagMSE_1000Lulaw(p40): # running p40
+  '''
+  u-low LogVT
+  '''
+  GPU_PARTION = 0.45
+  losses_position = ['transformed_losses']
+  # not_transformed_losses = ['loss_mag_mse']
+  transformed_losses = ['FTloss_mag_mse']
+  FT_type = 'LogValueT'
+  weighted_FTL_by_DLoss = False
+  add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_mag_mse']
+  show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
+
+  LogFilter_type = 1 ####
+  feature_transformer_grad_coef = 1.0
+  D_loss_coef = 1000.0
+
+class se_FTMagMSE_100GulawM(p40): # dead p40
   '''
   u-low-m LogVT
   '''
@@ -297,7 +335,7 @@ class se_FTMagMSE_100GulawM(p40): # running p40
   LogFilter_type = 2 ####
   feature_transformer_grad_coef = 100.0
 
-class se_FTMagMSE_100GulawM_FTin(p40): # running p40
+class se_FTMagMSE_100Gulaw_FTin(p40): # done p40
   '''
   u-low-m LogVT
   '''
@@ -312,10 +350,10 @@ class se_FTMagMSE_100GulawM_FTin(p40): # running p40
   stop_criterion_losses = ['loss_mag_mse']
   show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
 
-  LogFilter_type = 2
+  LogFilter_type = 1
   feature_transformer_grad_coef = 100.0
 
-class se_FTMagRL0_020_100GulawM_FTin(p40): # running p40
+class se_FTMagRL0_020_100Gulaw_FTin(p40): # done p40
   '''
   u-low-m LogVT
   '''
@@ -330,11 +368,11 @@ class se_FTMagRL0_020_100GulawM_FTin(p40): # running p40
   stop_criterion_losses = ['loss_mag_mse']
   show_losses = ['loss_mag_mse', 'FTloss_mag_RL', 'd_loss']
 
-  LogFilter_type = 2
+  LogFilter_type = 1
   relative_loss_epsilon = 0.02 ####
   feature_transformer_grad_coef = 100.0
 
 
-PARAM = se_FTMagRL0_020_100GulawM_FTin
+PARAM = se_FTMagMSE_1000Lulaw
 
 # CUDA_VISIBLE_DEVICES=2 OMP_NUM_THREADS=4 python -m xxx._2_train

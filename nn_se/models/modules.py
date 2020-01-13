@@ -175,7 +175,8 @@ class Module(object):
     # trainable_variables = tf.compat.v1.trainable_variables()
     self.d_params = tf.compat.v1.trainable_variables(scope='discriminator*')
     self.ft_params = tf.compat.v1.trainable_variables(scope='FeatureTransformerLayer*')
-    # misc_utils.show_variables(d_params)
+    # print("ft PARAMs")
+    # misc_utils.show_variables(self.ft_params)
     self.se_net_params = tf.compat.v1.trainable_variables(scope='se_net*')
     self.save_variables.extend(self.se_net_params + self.d_params + self.ft_params)
     self.saver = tf.compat.v1.train.Saver(self.save_variables,

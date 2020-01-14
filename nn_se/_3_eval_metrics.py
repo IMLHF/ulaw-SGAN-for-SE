@@ -176,9 +176,16 @@ def main():
 if __name__ == "__main__":
   misc_utils.initial_run(sys.argv[0].split("/")[-2])
 
+  # save MelMatrix
+  log_dir = str(misc_utils.log_dir())
+  if "MelDenseT" in PARAM.FT_type:
+    melMatrix=smg.session.run(smg.model.melMatrix)
+    np.save(os.path.join(log_dir,"melMatrix.npz"), melMatrix)
+
   if len(sys.argv) > 1:
     test_processor = int(sys.argv[1])
   main()
+
   """
   run cmd:
   `OMP_NUM_THREADS=1 python -m xx._3_eval_metrics 3`

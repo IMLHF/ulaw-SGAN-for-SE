@@ -99,8 +99,10 @@ class RealVariables(object):
           raise NotImplementedError
         elif type_ == 1: # u-low transformer
           y = tf.log(x * b + 1.0 + 0.0*a) / tf.log(b + 1.0)
-        elif type_ ==2: # modified u-low transformer
+        elif type_ == 2: # modified u-low transformer
           y = tf.log(x * b + 1.0) / tf.log(a * b + 1.0)
+        elif type_ == 3: # only B
+          y = (tf.log(x * b + 0.001 + 0.0*a) - tf.log(0.001)) / (tf.log(b + 0.001)-tf.log(0.001))
         return y
       self.LogFilterT = LogFilter_of_Loss
 
@@ -114,7 +116,9 @@ class RealVariables(object):
       melMatrix = tf.compat.v1.get_variable('FeatureTransformerLayer/FT_MelMat', dtype=tf.float32,
                                             trainable=True,
                                             initializer=melmat_fun(PARAM.MelDenseT_n_mel, PARAM.fft_dot,
-                                                                  PARAM.sampling_rate, 0, PARAM.sampling_rate//2))
+                                                                   PARAM.sampling_rate, 0, PARAM.sampling_rate//2))
+      self.melMatrix = melMatrix
+
       def stft2mel(x):
         return tf.matmul(x, melMatrix)
       self.MelDenseT = stft2mel
@@ -196,11 +200,18 @@ class Module(object):
       self._not_transformed_losses, self._transformed_losses, self._d_loss = self.get_loss(forward_outputs)
 
     # trainable_variables = tf.compat.v1.trainable_variables()
-    self.d_params = tf.compat.v1.trainable_variables(scope='discriminator*')
-    self.ft_params = tf.compat.v1.trainable_variables(scope='FeatureTransformerLayer*')
-    # print("ft PARAMs")
-    # misc_utils.show_variables(self.ft_params)
-    self.se_net_params = tf.compat.v1.trainable_variables(scope='se_net*')
+    self.d_params = tf.compat.v1.trainable_variables(scope='discriminator/')
+    self.ft_params = tf.compat.v1.trainable_variables(scope='FeatureTransformerLayer/')
+    self.se_net_params = tf.compat.v1.trainable_variables(scope='se_net/')
+
+    if mode == PARAM.MODEL_TRAIN_KEY:
+      print("\nD PARAMs:")
+      misc_utils.show_variables(self.d_params)
+      print("\nft PARAMs")
+      misc_utils.show_variables(self.ft_params)
+      print("\nSE PARAMs")
+      misc_utils.show_variables(self.se_net_params)
+
     self.save_variables.extend(self.se_net_params + self.d_params + self.ft_params)
     self.saver = tf.compat.v1.train.Saver(self.save_variables,
                                           max_to_keep=PARAM.max_keep_ckpt,

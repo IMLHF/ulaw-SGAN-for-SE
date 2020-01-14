@@ -230,7 +230,7 @@ def main():
     val_model = ModelC(PARAM.MODEL_VALIDATE_KEY, variables, val_inputs.mixed,val_inputs.clean)
     init = tf.group(tf.compat.v1.global_variables_initializer(),
                     tf.compat.v1.local_variables_initializer())
-    misc_utils.show_variables(train_model.save_variables)
+    # misc_utils.show_variables(train_model.save_variables)
     # misc_utils.show_variables(val_model.save_variables)
   g.finalize()
 

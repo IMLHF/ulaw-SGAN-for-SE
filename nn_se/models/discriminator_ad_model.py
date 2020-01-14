@@ -93,7 +93,10 @@ class DISCRIMINATOR_AD_MODEL(Module):
 
 
     all_clipped_grads, _ = tf.clip_by_global_norm(all_grads, PARAM.max_gradient_norm)
-    self.optimizer = tf.compat.v1.train.AdamOptimizer(self._lr)
+    if PARAM.optimizer == "Adam":
+      self.optimizer = tf.compat.v1.train.AdamOptimizer(self._lr)
+    elif PARAM.optimizer == "RMSProp":
+      self.optimizer = tf.compat.v1.train.RMSPropOptimizer(self._lr)
     self._train_op = self.optimizer.apply_gradients(zip(all_clipped_grads, all_params),
                                                     global_step=self.global_step)
 

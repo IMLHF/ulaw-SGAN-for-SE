@@ -74,7 +74,8 @@ class DISCRIMINATOR_AD_MODEL(Module):
         # merge se_grads from se_loss and FT_grad fron FT_loss
         all_grads = [(grad1+grad2)*0.5 for grad1, grad2 in zip(all_grads, se_Tloss_grads)]
 
-      ## d_grad in D_net
+    ## d_grad in D_net
+    if "d_loss" in PARAM.losses_position:
       if PARAM.discirminator_grad_coef > 1e-12:
         print('optimizer D')
         # merge d_grads_in_D_Net and D_params

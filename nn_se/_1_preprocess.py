@@ -138,17 +138,18 @@ def generate_tfrecords_using_meta(sub_dataset_name):
 
 
 def main():
-    print("Generate train.meta...", flush=True)
-    prepare_train_validation_test_set(train_name)
-    print("Generate validation.meta...", flush=True)
-    prepare_train_validation_test_set(validation_name)
-    print("Generate test.meta...\n", flush=True)
-    prepare_train_validation_test_set(test_name)
+  assert PARAM.rawdata_type == 'clean_noise', "Only clean_noise datasets need preprocess."
+  print("Generate train.meta...", flush=True)
+  prepare_train_validation_test_set(train_name)
+  print("Generate validation.meta...", flush=True)
+  prepare_train_validation_test_set(validation_name)
+  print("Generate test.meta...\n", flush=True)
+  prepare_train_validation_test_set(test_name)
 
-    print("Write train set tfrecords...", flush=True)
-    generate_tfrecords_using_meta(train_name)
-    print("Write validation set tfrecords...", flush=True)
-    generate_tfrecords_using_meta(validation_name)
+  print("Write train set tfrecords...", flush=True)
+  generate_tfrecords_using_meta(train_name)
+  print("Write validation set tfrecords...", flush=True)
+  generate_tfrecords_using_meta(validation_name)
 
 
 if __name__ == "__main__":

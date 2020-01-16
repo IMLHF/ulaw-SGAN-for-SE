@@ -1,4 +1,5 @@
 from .dataloader.dataloader import get_batch_inputs_from_dataset
+from .dataloader.dataloader import get_batch_inputs_from_nosiyCleanDataset
 from .utils import audio
 from .FLAGS import PARAM
 import tensorflow as tf
@@ -60,7 +61,20 @@ def wav_through_stft_istft_noreconstructed():
   audio.write_audio(os.path.join(PARAM.root_dir,"exp/test/p265_002_only_stft.wav"),wav_np,PARAM.sampling_rate)
 
 
+def test_dataloader_from_noisy_clean_datasets():
+  batch=get_batch_inputs_from_nosiyCleanDataset(PARAM.train_noisy_path, PARAM.train_clean_path)
+  sess=tf.compat.v1.Session()
+  sess.run(batch.initializer)
+  clean, mixed=sess.run([batch.clean, batch.mixed])
+  print(np.shape(clean), np.shape(mixed))
+  if not os.path.exists("exp/test"):
+    os.makedirs("exp/test/")
+  audio.write_audio(os.path.join(PARAM.root_dir,"exp/test/clean.wav"),clean[0],PARAM.sampling_rate)
+  audio.write_audio(os.path.join(PARAM.root_dir,"exp/test/mixed.wav"),mixed[0],PARAM.sampling_rate)
+
+
 if __name__ == "__main__":
   # test_dataloader_py()
-  wav_through_stft_istft()
+  # wav_through_stft_istft()
   # wav_through_stft_istft_noreconstructed()
+  test_dataloader_from_noisy_clean_datasets()

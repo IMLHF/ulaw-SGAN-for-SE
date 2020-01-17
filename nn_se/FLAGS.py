@@ -109,6 +109,7 @@ class BaseConfig(StaticKey):
   show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
 
   # just for "DISCRIMINATOR_AD_MODEL"
+  add_noisy_class_in_D = False
   discirminator_grad_coef = 1.0
   D_loss_coef = 1.0
 
@@ -144,7 +145,7 @@ class BasicNoisyDataset(BaseConfig):
   n_val_set_records = 824
   n_test_set_records = 824
 
-  max_epoch = 50
+  max_epoch = 120
 
 class p40(BaseConfig):
   n_processor_gen_tfrecords = 56
@@ -152,7 +153,7 @@ class p40(BaseConfig):
   GPU_PARTION = 0.225
   root_dir = '/home/zhangwenbo5/lihongfeng/se-with-FTL'
 
-class se_reMagMSE_noisyData(BasicNoisyDataset): # running 15123
+class se_reMagMSE_noisyData(BasicNoisyDataset): # done 15123
   '''
   baseline noisy datasets
   '''
@@ -168,7 +169,7 @@ class se_reMagMSE_noisyData(BasicNoisyDataset): # running 15123
   stop_criterion_losses = ['loss_mag_mse']
   show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
 
-class se_reMagMSE_simulateData(BaseConfig): # running 15123
+class se_reMagMSE_simulateData(BaseConfig): # done 15123
   '''
   reMagMSE
   '''
@@ -278,9 +279,9 @@ class se_FTMagMSE_rawB(p40): # done p40
 
   LogFilter_type = 3 ####
 
-class se_FTMagMSE_ulawBtimes1000(p40): # running p40
+class se_FTMagMSE_ulawBtimes100(p40): # done p40
   '''
-  u-low LogVT
+  u-low LogVT 100times
   '''
   GPU_PARTION = 0.52
   losses_position = ['transformed_losses', 'd_loss']
@@ -296,6 +297,25 @@ class se_FTMagMSE_ulawBtimes1000(p40): # running p40
   LogFilter_type = 2 ####
   f_log_b = 0.0001 ####
   logFT_type2_btimes = 100.0 ####
+
+class se_FTMagMSE_ulawBtimes1000(p40): # running p40
+  '''
+  u-low LogVT 1000times
+  '''
+  GPU_PARTION = 0.52
+  losses_position = ['transformed_losses', 'd_loss']
+  # not_transformed_losses = ['loss_mag_mse']
+  transformed_losses = ['FTloss_mag_mse']
+  FT_type = ["LogValueT"]
+  weighted_FTL_by_DLoss = False
+  add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_mag_mse']
+  show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
+
+  LogFilter_type = 2 ####
+  f_log_b = 0.00001 ####
+  logFT_type2_btimes = 1000.0 ####
 
 class se_FTMagMSE_ulaw(p40): # done p40
   '''
@@ -368,7 +388,7 @@ class se_FTMagMSE_1000Gulaw(p40): # done p40
   LogFilter_type = 1 ####
   feature_transformer_grad_coef = 1000.0
 
-class se_MagMSE_1000Lulaw_FTin(BaseConfig): # running 15043
+class se_MagMSE_1000Lulaw_FTin(BaseConfig): # done 15043
   '''
   u-low LogVT
   '''
@@ -406,7 +426,47 @@ class se_FTMagMSE_1000Lulaw(p40): # done p40
   feature_transformer_grad_coef = 1.0
   D_loss_coef = 1000.0
 
-class se_FTMagMSE_1000Lulaw_FTin(BaseConfig): # running 15043
+class se_FTMagMSE_1000Lulaw_con(p40): # running p40
+  '''
+  u-low LogVT
+  '''
+  GPU_PARTION = 0.45
+  losses_position = ['transformed_losses', 'd_loss']
+  # not_transformed_losses = ['loss_mag_mse']
+  transformed_losses = ['FTloss_mag_mse']
+  FT_type = ["LogValueT"]
+  weighted_FTL_by_DLoss = False
+  add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_mag_mse']
+  show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
+
+  LogFilter_type = 1 ####
+  f_log_b = 9.0
+  feature_transformer_grad_coef = 1.0
+  D_loss_coef = 1000.0
+
+class se_FTMagMSE_1000LfixUlaw(p40): # running p40
+  '''
+  u-low LogVT
+  '''
+  GPU_PARTION = 0.45
+  losses_position = ['transformed_losses']
+  # not_transformed_losses = ['loss_mag_mse']
+  transformed_losses = ['FTloss_mag_mse']
+  FT_type = ["LogValueT"]
+  weighted_FTL_by_DLoss = False
+  add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_mag_mse']
+  show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
+
+  LogFilter_type = 1 ####
+  f_log_b = 9.0
+  feature_transformer_grad_coef = 0.0
+  D_loss_coef = 1000.0
+
+class se_FTMagMSE_1000Lulaw_FTin(BaseConfig): # done 15043
   '''
   u-low LogVT
   '''
@@ -493,7 +553,7 @@ class se_FTMagMSE_80fixMelFT(p40): # done p40
   show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
   melDenseT_trainable = False
 
-class se_FTMagMSE_ulaw_80fixMelFT(p40): # running p40
+class se_FTMagMSE_ulaw_80fixMelFT(p40): # done p40
   '''
   ulawFT + MelDenseT_80_fixed
   '''
@@ -526,7 +586,7 @@ class se_FTMagMSE_129MelFT(BaseConfig): # done 15043
   stop_criterion_losses = ['loss_mag_mse']
   show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
 
-class se_FTMagMSE_RDenseFT(p40): # running p40
+class se_FTMagMSE_RDenseFT(p40): # done p40
   '''
   RandomDenseT
   '''
@@ -541,6 +601,6 @@ class se_FTMagMSE_RDenseFT(p40): # running p40
   stop_criterion_losses = ['loss_mag_mse']
   show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
 
-PARAM = se_reMagMSE_simulateData
+PARAM = se_FTMagMSE_ulawBtimes1000
 
 # CUDA_VISIBLE_DEVICES=2 OMP_NUM_THREADS=4 python -m xxx._2_train

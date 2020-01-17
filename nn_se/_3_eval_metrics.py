@@ -59,13 +59,16 @@ def eval_one_record(clean_dir_and_noise_dir, mix_snr, save_dir=None):
   assert c_sr == n_sr and c_sr == PARAM.sampling_rate, 'Sample_rate error.'
   assert len(clean_wav) > 0 and len(noise_wav) > 0, 'clean or noise length is 0.'
 
-  len_clean = len(clean_wav)
-  noise_wav = audio.repeat_to_len(noise_wav, len_clean, False)
-  mixed_wav, w_clean, w_noise = audio.mix_wav_by_SNR(clean_wav, noise_wav, mix_snr)
-  clean_wav = clean_wav * w_clean
-  noise_wav = noise_wav * w_noise
-  enhanced_wav = enhance_one_wav(smg, mixed_wav)
+  if PARAM.rawdata_type == 'clean_noise':
+    len_clean = len(clean_wav)
+    noise_wav = audio.repeat_to_len(noise_wav, len_clean, False)
+    mixed_wav, w_clean, w_noise = audio.mix_wav_by_SNR(clean_wav, noise_wav, mix_snr)
+    clean_wav = clean_wav * w_clean
+    noise_wav = noise_wav * w_noise
+  elif PARAM.rawdata_type == 'clean_noisy':
+    mixed_wav = noise_wav
 
+  enhanced_wav = enhance_one_wav(smg, mixed_wav)
   clean_dir_name = Path(clean_dir).stem
   noise_dir_name = Path(noise_dir).stem
   if save_dir is not None:
@@ -100,7 +103,7 @@ def eval_testSet_by_list(clean_noise_pair_list, mix_snr, save_dir=None):
   #   eval_ans = eval_one_record(clean_dir_and_noise_dir, mix_snr, save_dir)
   #   eval_ans_list.append(eval_ans)
   #   # print(eval_ans)
-  #   # print("________________________________________________________________________________________________________________")
+  #   # print("____________________________________________________________________________________________________________")
 
   # write log
   test_log_file = misc_utils.test_log_file_dir(mix_snr)
@@ -144,15 +147,22 @@ def eval_testSet_by_meta(mix_SNR, save_test_records=False):
   save_test_records: if save test answer (clean, mixed, enhanced)
   """
 
-  set_root = misc_utils.datasets_dir().joinpath(PARAM.test_name) # "/xx/$datasets_name/train"
-  meta_dir = set_root.joinpath(PARAM.test_name+".meta")
-  test_log_file = str(misc_utils.test_log_file_dir(mix_SNR))
-  misc_utils.print_log("Using meta '%s'\n" % str(meta_dir), test_log_file)
+  if PARAM.rawdata_type == "clean_noise":
+    set_root = misc_utils.datasets_dir().joinpath(PARAM.test_name) # "/xx/$datasets_name/train"
+    meta_dir = set_root.joinpath(PARAM.test_name+".meta")
+    test_log_file = str(misc_utils.test_log_file_dir(mix_SNR))
+    misc_utils.print_log("Using meta '%s'\n" % str(meta_dir), test_log_file)
 
-  metaf = meta_dir.open("r")
-  meta_list = list(metaf.readlines())
-  meta_list.sort()
-  meta_list = [meta.strip().split("|") for meta in meta_list] # [ (clean, noise), ...]
+    metaf = meta_dir.open("r")
+    meta_list = list(metaf.readlines())
+    meta_list.sort()
+    meta_list = [meta.strip().split("|") for meta in meta_list] # [ (clean, noise), ...]
+  elif PARAM.rawdata_type == "clean_noisy":
+    clean_list = list(Path(PARAM.test_clean_path).glob("*.wav"))
+    noisy_list = list(Path(PARAM.test_noisy_path).glob("*.wav"))
+    clean_list.sort()
+    noisy_list.sort()
+    meta_list = list(zip(clean_list, noisy_list))
 
   if not save_test_records:
     test_records_save_dir = None
@@ -176,15 +186,16 @@ def main():
 if __name__ == "__main__":
   misc_utils.initial_run(sys.argv[0].split("/")[-2])
 
-  # save MelMatrix
-  log_dir = str(misc_utils.log_dir())
-  if "MelDenseT" in PARAM.FT_type:
-    melMatrix=smg.session.run(smg.model.melMatrix)
-    np.save(os.path.join(log_dir,"melMatrix.npz"), melMatrix)
-
   if len(sys.argv) > 1:
     test_processor = int(sys.argv[1])
   main()
+
+  # save MelMatrix
+  if "MelDenseT" in PARAM.FT_type:
+    log_dir = str(misc_utils.log_dir())
+    tmpsmg = build_SMG()
+    melMatrix=tmpsmg.session.run(tmpsmg.model.variables.melMatrix)
+    np.save(os.path.join(log_dir,"melMatrix"), melMatrix)
 
   """
   run cmd:

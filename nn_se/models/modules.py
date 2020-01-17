@@ -95,12 +95,13 @@ class RealVariables(object):
       def LogFilter_of_Loss(x,type_=PARAM.LogFilter_type):
         a = self._f_log_a
         b = self._f_log_b
+        b_times = PARAM.logFT_type2_btimes
         if type_ == 0:
           raise NotImplementedError
         elif type_ == 1: # u-low transformer
           y = tf.log(x * b + 1.0 + 0.0*a) / tf.log(b + 1.0)
-        elif type_ == 2: # modified u-low transformer
-          y = tf.log(x * b + 1.0) / tf.log(a * b + 1.0)
+        elif type_ == 2: # u-low transformer add speed up b changing
+          y = tf.log(x * b_times * b + 1.0 + 0.0*a) / tf.log(b_times * b + 1.0)
         elif type_ == 3: # only B
           y = (tf.log(x * b + 0.001 + 0.0*a) - tf.log(0.001)) / (tf.log(b + 0.001)-tf.log(0.001))
         return y
@@ -114,7 +115,7 @@ class RealVariables(object):
       ## 3. MelDenseT
       melmat_fun = tf.contrib.signal.linear_to_mel_weight_matrix
       melMatrix = tf.compat.v1.get_variable('FeatureTransformerLayer/FT_MelMat', dtype=tf.float32,
-                                            trainable=True,
+                                            trainable=PARAM.melDenseT_trainable,
                                             initializer=melmat_fun(PARAM.MelDenseT_n_mel, PARAM.fft_dot,
                                                                    PARAM.sampling_rate, 0, PARAM.sampling_rate//2))
       self.melMatrix = melMatrix
@@ -270,6 +271,7 @@ class Module(object):
     elif PARAM.feature_type == "DCT":
       mixed_mag_batch = mixed_spec_batch
     training = (self.mode == PARAM.MODEL_TRAIN_KEY)
+    self.mixed_mag_batch = mixed_mag_batch
     input_feature = mixed_mag_batch
 
     if PARAM.add_FeatureTrans_in_SE_inputs:
@@ -298,10 +300,13 @@ class Module(object):
     return est_clean_mag_batch, est_clean_spec_batch, est_clean_wav_batch
 
 
-  def clean_and_enhanced_mag_discriminator(self, clean_mag_batch, est_mag_batch):
+  def clean_and_enhanced_mag_discriminator(self, clean_mag_batch, est_mag_batch, mixed_mag_batch):
     deep_features = []
     training = (self.mode == PARAM.MODEL_TRAIN_KEY)
-    outputs = tf.concat([clean_mag_batch, est_mag_batch], axis=0)
+    if PARAM.add_noisy_class_in_D:
+      outputs = tf.concat([clean_mag_batch, est_mag_batch, mixed_mag_batch], axis=0)
+    else:
+      outputs = tf.concat([clean_mag_batch, est_mag_batch], axis=0)
 
     # Features Transformer
     outputs = self.variables.FeatureTransformer(outputs)
@@ -311,11 +316,16 @@ class Module(object):
     if PARAM.frame_level_D:
       zeros = tf.zeros(clean_mag_batch.shape[0:2], dtype=tf.int32)
       ones = tf.ones(est_mag_batch.shape[0:2], dtype=tf.int32)
+      twos = tf.ones(mixed_mag_batch.shape[0:2], dtype=tf.int32) * 2
     else:
       zeros = tf.zeros(clean_mag_batch.shape[0], dtype=tf.int32)
       ones = tf.ones(est_mag_batch.shape[0], dtype=tf.int32)
-    labels = tf.concat([zeros, ones], axis=0)
-    onehot_labels = tf.one_hot(labels, 2)
+      twos = tf.ones(mixed_mag_batch.shape[0], dtype=tf.int32) * 2
+    if PARAM.add_noisy_class_in_D:
+      labels = tf.concat([zeros, ones], axis=0)
+    else:
+      labels = tf.concat([zeros, ones, twos], axis=0)
+    onehot_labels = tf.one_hot(labels, 3 if PARAM.add_noisy_class_in_D else 2)
     # print(outputs.shape.as_list(), ' dddddddddddddddddddddd test shape')
 
     # outputs1 = self.variables.d_denses[0](outputs) # [batch*2, time, fea]

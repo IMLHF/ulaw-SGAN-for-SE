@@ -111,7 +111,8 @@ class DISCRIMINATOR_AD_MODEL(Module):
 
   def get_discriminator_loss(self, forward_outputs):
     r_est_clean_mag_batch, r_est_clean_spec_batch, r_est_clean_wav_batch = forward_outputs
-    logits, one_hots_labels, deep_features = self.clean_and_enhanced_mag_discriminator(self.clean_mag_batch, r_est_clean_mag_batch)
+    logits, one_hots_labels, deep_features = self.clean_and_enhanced_mag_discriminator(
+        self.clean_mag_batch, r_est_clean_mag_batch, self.mixed_mag_batch)
     # print("23333333333333", one_hots_labels.shape.as_list(), logits.shape.as_list())
     loss = tf.losses.softmax_cross_entropy(one_hots_labels, logits) # max about 0.7
     loss = loss*PARAM.D_loss_coef

@@ -80,7 +80,7 @@ class RealVariables(object):
                                   name='discriminator/lstm_%d' % i)
       self.Dlstm_layers.append(lstm)
 
-    self.D_out_fc = tf.keras.layers.Dense(2, name='discriminator/out_fc')
+    self.D_out_fc = tf.keras.layers.Dense(3 if PARAM.add_noisy_class_in_D else 2, name='discriminator/out_fc')
 
     ### FeatureTransformerLayers
     if "LogValueT" in PARAM.FT_type:
@@ -322,9 +322,9 @@ class Module(object):
       ones = tf.ones(est_mag_batch.shape[0], dtype=tf.int32)
       twos = tf.ones(mixed_mag_batch.shape[0], dtype=tf.int32) * 2
     if PARAM.add_noisy_class_in_D:
-      labels = tf.concat([zeros, ones], axis=0)
-    else:
       labels = tf.concat([zeros, ones, twos], axis=0)
+    else:
+      labels = tf.concat([zeros, ones], axis=0)
     onehot_labels = tf.one_hot(labels, 3 if PARAM.add_noisy_class_in_D else 2)
     # print(outputs.shape.as_list(), ' dddddddddddddddddddddd test shape')
 
@@ -367,7 +367,7 @@ class Module(object):
     outputs = self.variables.D_out_fc(outputs)
     logits = outputs
     if PARAM.frame_level_D:
-      logits = tf.reshape(outputs, [_batch_size, -1, 2])
+      logits = tf.reshape(outputs, [_batch_size, -1, 3 if PARAM.add_noisy_class_in_D else 2])
     return logits, onehot_labels, deep_features
 
 

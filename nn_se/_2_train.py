@@ -219,14 +219,8 @@ def main():
   g = tf.Graph()
   with g.as_default():
     with tf.name_scope("inputs"):
-      if PARAM.rawdata_type == 'clean_noise':
-        train_inputs = dataloader.get_batch_inputs_from_dataset(PARAM.train_name)
-        val_inputs = dataloader.get_batch_inputs_from_dataset(PARAM.validation_name)
-      elif PARAM.rawdata_type == 'clean_noisy':
-        train_inputs = dataloader.get_batch_inputs_from_nosiyCleanDataset(PARAM.train_noisy_path,
-                                                                          PARAM.train_clean_path)
-        val_inputs = dataloader.get_batch_inputs_from_nosiyCleanDataset(PARAM.test_noisy_path,
-                                                                        PARAM.test_clean_path)
+      train_inputs = dataloader.get_batch_inputs_from_dataset(PARAM.train_name)
+      val_inputs = dataloader.get_batch_inputs_from_dataset(PARAM.validation_name)
 
     ModelC, VariablesC = model_builder.get_model_class_and_var()
 

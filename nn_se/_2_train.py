@@ -219,8 +219,14 @@ def main():
   g = tf.Graph()
   with g.as_default():
     with tf.name_scope("inputs"):
-      train_inputs = dataloader.get_batch_inputs_from_dataset(PARAM.train_name)
-      val_inputs = dataloader.get_batch_inputs_from_dataset(PARAM.validation_name)
+      noisy_trainset_wav = misc_utils.datasets_dir().joinpath(PARAM.train_noisy_set)
+      clean_trainset_wav = misc_utils.datasets_dir().joinpath(PARAM.train_clean_set)
+      noisy_valset_wav = misc_utils.datasets_dir().joinpath(PARAM.validation_noisy_set)
+      clean_valset_wav = misc_utils.datasets_dir().joinpath(PARAM.validation_clean_set)
+      train_inputs = dataloader.get_batch_inputs_from_nosiyCleanDataset(noisy_trainset_wav,
+                                                                        clean_trainset_wav)
+      val_inputs = dataloader.get_batch_inputs_from_nosiyCleanDataset(noisy_valset_wav,
+                                                                      clean_valset_wav)
 
     ModelC, VariablesC = model_builder.get_model_class_and_var()
 

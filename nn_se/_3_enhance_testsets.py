@@ -39,14 +39,14 @@ def enhance_one_testset(testset_dir, enhanced_save_dir):
 
 
 def main():
-  for testset_name in PARAM.test_sets:
+  for testset_name in PARAM.test_noisy_sets:
     print("Enhancing %s:" % testset_name, flush=True)
     _dir = misc_utils.enhanced_testsets_save_dir(testset_name)
     if _dir.exists():
       import shutil
       shutil.rmtree(str(_dir))
     _dir.mkdir(parents=True)
-    testset_dir = os.path.join(misc_utils.datasets_dir(), testset_name)
+    testset_dir = str(misc_utils.datasets_dir().joinpath(testset_name))
     enhanced_save_dir = str(_dir)
     enhance_one_testset(testset_dir, enhanced_save_dir)
 

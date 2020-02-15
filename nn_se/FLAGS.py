@@ -34,10 +34,12 @@ class BaseConfig(StaticKey):
   frame_step = 128
   rnn_units = 512
 
-  train_noisy_path = './noisy_datasets_16k/noisy_trainset_wav'
-  train_clean_path = './noisy_datasets_16k/clean_trainset_wav'
-  test_noisy_path = './noisy_datasets_16k/noisy_testset_wav'
-  test_clean_path = './noisy_datasets_16k/clean_testset_wav'
+  train_noisy_set = 'noisy_trainset_wav'
+  train_clean_set = '.clean_trainset_wav'
+  validation_noisy_set = 'noisy_testset_wav'
+  validation_clean_set = 'clean_testset_wav'
+  test_noisy_sets = ['noisy_testset_wav']
+  test_clean_sets = ['clean_testset_wav']
 
   n_train_set_records = 11572
   n_val_set_records = 824
@@ -140,7 +142,6 @@ class BaseConfig(StaticKey):
 
   inverse_Win_in_stft = True
 
-  test_sets = ['noisy_testset_wav']
 
 
 class p40(BaseConfig):
@@ -162,8 +163,8 @@ class se_reMagMSE_noisyData(BaseConfig): # running 15123
   # weighted_FTL_by_DLoss = False
   # add_FeatureTrans_in_SE_inputs = False
 
-  stop_criterion_losses = ['loss_mag_mse']
-  show_losses = ['loss_mag_mse', 'FTloss_mag_mse', 'd_loss']
+  stop_criterion_losses = ['loss_reMagMse']
+  show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
 
 
 PARAM = se_reMagMSE_noisyData

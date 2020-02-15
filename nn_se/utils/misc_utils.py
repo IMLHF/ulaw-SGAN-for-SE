@@ -29,9 +29,14 @@ def tf_batch_istft(batch_stft, frame_length, frame_step):
     feature = tf.signal.overlap_and_add(batch_stft, frame_step)
     return feature
   if PARAM.feature_type == "DFT":
-    signals = tf.signal.inverse_stft(batch_stft, frame_length, frame_step,
-                                     # window_fn=tf.signal.inverse_stft_window_fn(frame_step)
-                                     )
+    if PARAM.inverse_Win_in_stft:
+      signals = tf.signal.inverse_stft(batch_stft, frame_length, frame_step,
+                                       window_fn=tf.signal.inverse_stft_window_fn(frame_step)
+                                       )
+    else:
+      signals = tf.signal.inverse_stft(batch_stft, frame_length, frame_step,
+                                       # window_fn=tf.signal.inverse_stft_window_fn(frame_step)
+                                       )
   elif PARAM.feature_type == "DCT":
     # hann_win = tf.reshape(tf.signal.hann_window(frame_length), [1,1,-1])
     # frames = frames*hann_win
@@ -55,9 +60,9 @@ def test_code_out_dir():
   return _dir
 
 
-def test_records_save_dir():
+def enhanced_testsets_save_dir(testset_name):
   exp_config_name_dir = exp_configName_dir()
-  return exp_config_name_dir.joinpath('test_records')
+  return exp_config_name_dir.joinpath('enhanced_testsets', testset_name)
 
 
 def hparams_file_dir():
@@ -70,8 +75,8 @@ def ckpt_dir():
   return exp_config_name_dir.joinpath('ckpt')
 
 
-def test_log_file_dir(mix_snr):
-  str_snr = "test_snr(+%02d).log" % mix_snr if mix_snr >= 0 else "test_snr(-%02d).log" % mix_snr
+def test_log_file_dir(testset_name):
+  str_snr = "%s.test.log" % testset_name
   log_dir_ = log_dir()
   return log_dir_.joinpath(str_snr)
 

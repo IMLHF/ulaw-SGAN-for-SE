@@ -166,6 +166,40 @@ class se_reMagMSE_0100(BaseConfig): # done 15123
   stop_criterion_losses = ['loss_reMagMse']
   show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
 
+class se_reMagMSE_moreData(p40): # running p40
+  '''
+  baseline noisy datasets
+  '''
+  GPU_PARTION = 0.23
+  losses_position = ['not_transformed_losses']
+  not_transformed_losses = ['loss_reMagMse']
+  relative_loss_epsilon = 0.1
+  # transformed_losses = ['FTloss_mag_mse']
+  # FT_type = ["LogValueT"]
+  # weighted_FTL_by_DLoss = False
+  # add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_reMagMse']
+  show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
+
+class se_reMagMSE_longwav(p40): # running p40
+  '''
+  baseline noisy datasets
+  '''
+  GPU_PARTION = 0.23
+  losses_position = ['not_transformed_losses']
+  not_transformed_losses = ['loss_reMagMse']
+  relative_loss_epsilon = 0.1
+  # transformed_losses = ['FTloss_mag_mse']
+  # FT_type = ["LogValueT"]
+  # weighted_FTL_by_DLoss = False
+  # add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_reMagMse']
+  show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
+
+  train_val_wav_seconds = 5.0
+
 class se_reMagMSE_0050(BaseConfig): # done 15123
   '''
   baseline noisy datasets
@@ -216,6 +250,6 @@ class se_reMagMSE_cnn(BaseConfig): # running 15123
   stop_criterion_losses = ['loss_reMagMse']
   show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
 
-PARAM = se_reMagMSE_cnn
+PARAM = se_reMagMSE_moreData
 
 # CUDA_VISIBLE_DEVICES=2 OMP_NUM_THREADS=4 python -m xxx._2_train

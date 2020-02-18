@@ -10,10 +10,9 @@ from ..FLAGS import PARAM
 
 
 def tf_batch_stft(batch_wav, frame_length, frame_step):
-  if PARAM.use_wav_as_feature:
+  if PARAM.feature_type == "ComplexDFT":
     feature = tf.signal.frame(batch_wav, frame_length, frame_step, pad_end=True)
-    return feature
-  if PARAM.feature_type == "DFT":
+  elif PARAM.feature_type == "DFT":
     feature = tf.signal.stft(batch_wav, frame_length, frame_step, pad_end=True)
   elif PARAM.feature_type == "DCT":
     frames = tf.signal.frame(batch_wav, frame_length, frame_step, pad_end=True) # [batch,time,f]
@@ -25,10 +24,9 @@ def tf_batch_stft(batch_wav, frame_length, frame_step):
 
 
 def tf_batch_istft(batch_stft, frame_length, frame_step):
-  if PARAM.use_wav_as_feature:
-    feature = tf.signal.overlap_and_add(batch_stft, frame_step)
-    return feature
-  if PARAM.feature_type == "DFT":
+  if PARAM.feature_type == "ComplexDFT":
+    signals = tf.signal.overlap_and_add(batch_stft, frame_step)
+  elif PARAM.feature_type == "DFT":
     if PARAM.inverse_Win_in_stft:
       signals = tf.signal.inverse_stft(batch_stft, frame_length, frame_step,
                                        window_fn=tf.signal.inverse_stft_window_fn(frame_step)

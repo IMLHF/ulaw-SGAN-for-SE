@@ -190,7 +190,7 @@ class Module(object):
       # self.noise_wav_batch = mixed_wav_batch - clean_wav_batch
       # self.noise_spec_batch = misc_utils.tf_batch_stft(self.noise_wav_batch, PARAM.frame_length, PARAM.frame_step)
       # self.nosie_mag_batch = tf.math.abs(self.noise_spec_batch)
-      if PARAM.use_wav_as_feature:
+      if PARAM.feature_type == "ComplexDFT":
         self.clean_mag_batch = self.clean_spec_batch
       elif PARAM.feature_type == "DFT":
         self.clean_mag_batch = tf.math.abs(self.clean_spec_batch) # mag label
@@ -263,7 +263,7 @@ class Module(object):
 
   def real_networks_forward(self, mixed_wav_batch_extend):
     mixed_spec_batch = misc_utils.tf_batch_stft(mixed_wav_batch_extend, PARAM.frame_length, PARAM.frame_step)
-    if PARAM.use_wav_as_feature:
+    if PARAM.feature_type == "ComplexDFT":
       mixed_mag_batch = mixed_spec_batch
     elif PARAM.feature_type == "DFT":
       mixed_mag_batch = tf.math.abs(mixed_spec_batch)
@@ -287,7 +287,7 @@ class Module(object):
     if PARAM.feature_type == "DFT":
       est_clean_mag_batch = tf.nn.relu(est_clean_mag_batch)
 
-    if PARAM.use_wav_as_feature:
+    if PARAM.feature_type == "ComplexDFT":
       est_clean_spec_batch = est_clean_mag_batch
     elif PARAM.feature_type == "DFT":
       est_clean_spec_batch = tf.complex(est_clean_mag_batch, 0.0) * tf.exp(tf.complex(0.0, self.mixed_angle_batch)) # complex

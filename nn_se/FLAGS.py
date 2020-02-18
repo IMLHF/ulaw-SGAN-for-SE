@@ -64,7 +64,6 @@ class BaseConfig(StaticKey):
   sdrv3_bias = None # float, a bias will be added before vector dot multiply.
   stop_criterion_losses = None
   show_losses = None
-  use_wav_as_feature = False
   net_out_mask = True
   frame_length = 512
   frame_step = 256
@@ -128,7 +127,7 @@ class BaseConfig(StaticKey):
   weighted_FTL_by_DLoss = False # if D_loss is large (about 0.7) w_FTL tends to 0.0, otherwise tends to 1.0
   D_strict_degree_for_FTL = 300.0 # for weighted_FTL_by_DLoss
 
-  feature_type = "DFT" # DFT | DCT | QCT
+  feature_type = "DFT" # DFT | DCT | QCT | WAV | ComplexDFT
 
   add_FeatureTrans_in_SE_inputs = False
   LogFilter_type = 3

@@ -37,6 +37,25 @@ def repeat_to_len(wave, repeat_len, random_trunc_long_wav=False):
   return wave
 
 
+def repeat_to_len_2(wave1, wave2, repeat_len, random_trunc_long_wav=False):
+  wave_len1 = len(wave1)
+  wave_len2 = len(wave2)
+  assert wave_len1 == wave_len2, 'wav length not match.'
+  wave_len = wave_len1
+  if random_trunc_long_wav and wave_len > repeat_len:
+    random_s = np.random.randint(wave_len-repeat_len+1)
+    wave1 = wave1[random_s:random_s+repeat_len]
+    wave2 = wave2[random_s:random_s+repeat_len]
+    return wave1, wave2
+
+  while len(wave1) < repeat_len:
+    wave1 = np.tile(wave1, 2)
+    wave2 = np.tile(wave2, 2)
+  wave1 = wave1[0:repeat_len]
+  wave2 = wave2[0:repeat_len]
+  return wave1, wave2
+
+
 def mix_wav_by_SNR(waveData, noise, snr):
   As = linalg.norm(waveData)
   An = linalg.norm(noise)

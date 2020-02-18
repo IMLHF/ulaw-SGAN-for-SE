@@ -67,8 +67,9 @@ def _generator(noisy_list, clean_list):
     clean, csr = audio.read_audio(clean_dir)
     assert nsr == csr, "sample rate error."
     wav_len = int(PARAM.train_val_wav_seconds*PARAM.sampling_rate)
-    noisy = audio.repeat_to_len(noisy, wav_len)
-    clean = audio.repeat_to_len(clean, wav_len)
+    # clean = audio.repeat_to_len(clean, wav_len)
+    # noisy = audio.repeat_to_len(noisy, wav_len)
+    clean, noisy = audio.repeat_to_len_2(clean, noisy, wav_len, True)
     yield clean, noisy
 
 

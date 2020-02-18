@@ -28,12 +28,6 @@ class BaseConfig(StaticKey):
   min_TF_version = "1.14.0"
 
 
-  sampling_rate = 16000
-  fft_dot = 257
-  frame_length = 512
-  frame_step = 256
-  rnn_units = 512
-
   train_noisy_set = 'noisy_trainset_wav'
   train_clean_set = 'clean_trainset_wav'
   validation_noisy_set = 'noisy_testset_wav'
@@ -65,6 +59,7 @@ class BaseConfig(StaticKey):
   stop_criterion_losses = None
   show_losses = None
   net_out_mask = True
+  sampling_rate = 16000
   frame_length = 512
   frame_step = 256
   no_cnn = True
@@ -72,7 +67,7 @@ class BaseConfig(StaticKey):
   lstm_layers = 0
   rnn_units = 512
   rlstmCell_implementation = 2
-  fft_dot = 257
+  feature_dim = 257
   max_keep_ckpt = 30
   optimizer = "Adam" # "Adam" | "RMSProp"
   learning_rate = 0.001
@@ -127,7 +122,8 @@ class BaseConfig(StaticKey):
   weighted_FTL_by_DLoss = False # if D_loss is large (about 0.7) w_FTL tends to 0.0, otherwise tends to 1.0
   D_strict_degree_for_FTL = 300.0 # for weighted_FTL_by_DLoss
 
-  feature_type = "DFT" # DFT | DCT | QCT | WAV | ComplexDFT
+  feature_type = "AbsDFT" # AbsDFT | DCT | QCT | WAV | ComplexDFT
+  mask_type = "IRM" # IRM | cIRM # just for feature_type="ComplexDFT"
 
   add_FeatureTrans_in_SE_inputs = False
   LogFilter_type = 3
@@ -136,11 +132,6 @@ class BaseConfig(StaticKey):
   f_log_b = 0.001 # smaller, curve straighter
   log_filter_eps_a_b = 1e-6
   f_log_var_trainable = True
-
-  use_noLabel_noisy_speech = False
-
-  inverse_Win_in_stft = True
-
 
 
 class p40(BaseConfig):
@@ -165,7 +156,7 @@ class se_reMagMSE_0100(BaseConfig): # done 15123
   stop_criterion_losses = ['loss_reMagMse']
   show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
 
-class se_reMagMSE_moreData(p40): # running p40
+class se_reMagMSE_2moreData(p40): # running p40
   '''
   baseline noisy datasets
   '''
@@ -181,7 +172,7 @@ class se_reMagMSE_moreData(p40): # running p40
   stop_criterion_losses = ['loss_reMagMse']
   show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
 
-class se_reMagMSE_longwav(p40): # running p40
+class se_reMagMSE_longwav(p40): # done p40
   '''
   baseline noisy datasets
   '''
@@ -215,7 +206,7 @@ class se_reMagMSE_0050(BaseConfig): # done 15123
   stop_criterion_losses = ['loss_reMagMse']
   show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
 
-class se_reMagMSE_3blstm(BaseConfig): # running 15123
+class se_reMagMSE_3blstm(BaseConfig): # done 15123
   '''
   3 layers blstm
   '''
@@ -232,7 +223,7 @@ class se_reMagMSE_3blstm(BaseConfig): # running 15123
   stop_criterion_losses = ['loss_reMagMse']
   show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
 
-class se_reMagMSE_cnn(BaseConfig): # running 15123
+class se_reMagMSE_cnn(BaseConfig): # done 15123
   '''
   add cnn
   '''
@@ -249,6 +240,46 @@ class se_reMagMSE_cnn(BaseConfig): # running 15123
   stop_criterion_losses = ['loss_reMagMse']
   show_losses = ['loss_reMagMse', 'FTloss_mag_mse', 'd_loss']
 
-PARAM = se_reMagMSE_moreData
+class se_reMagMSE_cRM(p40): # running p40
+  '''
+  reMagMSE, cRM
+  '''
+  GPU_PARTION = 0.23
+  losses_position = ['not_transformed_losses']
+  not_transformed_losses = ['loss_reSpecMse']
+  relative_loss_epsilon = 0.1
+  # transformed_losses = ['FTloss_mag_mse']
+  # FT_type = ["LogValueT"]
+  # weighted_FTL_by_DLoss = False
+  # add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_reSpecMse']
+  show_losses = ['loss_reSpecMse', 'loss_spec_mse', 'd_loss']
+  feature_dim = 257*2
+  feature_type = "ComplexDFT"
+  mask_type = "cIRM"
+  blstm_layers = 3
+
+class se_reMagMSE_RealImagIRM(p40): # running p40
+  '''
+  reMagMSE, Real and Imag IRM
+  '''
+  GPU_PARTION = 0.23
+  losses_position = ['not_transformed_losses']
+  not_transformed_losses = ['loss_reSpecMse']
+  relative_loss_epsilon = 0.1
+  # transformed_losses = ['FTloss_mag_mse']
+  # FT_type = ["LogValueT"]
+  # weighted_FTL_by_DLoss = False
+  # add_FeatureTrans_in_SE_inputs = False
+
+  stop_criterion_losses = ['loss_reSpecMse']
+  show_losses = ['loss_reSpecMse', 'loss_spec_mse', 'd_loss']
+  feature_dim = 257*2
+  feature_type = "ComplexDFT"
+  mask_type = "IRM"
+  blstm_layers = 3
+
+PARAM = se_reMagMSE_RealImagIRM
 
 # CUDA_VISIBLE_DEVICES=2 OMP_NUM_THREADS=4 python -m xxx._2_train

@@ -10,8 +10,8 @@ def vec_normal(y):
 
 def batch_time_fea_real_mse(y1, y2):
   """
-  y1: real, [batch, time, fft_dot]
-  y2: real, [batch, time, fft_dot]
+  y1: real, [batch, time, feature_dim]
+  y2: real, [batch, time, feature_dim]
   """
   loss = tf.square(y1-y2)
   loss = tf.reduce_mean(tf.reduce_sum(loss, 0))
@@ -19,8 +19,8 @@ def batch_time_fea_real_mse(y1, y2):
 
 def batch_time_fea_complex_mse(y1, y2):
   """
-  y1: complex, [batch, time, fft_dot]
-  y2: conplex, [batch, time, fft_dot]
+  y1: complex, [batch, time, feature_dim]
+  y2: conplex, [batch, time, feature_dim]
   """
   y1_real = tf.math.real(y1)
   y1_imag = tf.math.imag(y1)
@@ -42,8 +42,8 @@ def batch_real_relativeMSE(y1, y2, RL_epsilon, index_=2.0):
 
 def batch_complex_relativeMSE(y1, y2, RL_epsilon, index_=2.0):
   """
-  y1: complex, [batch, time, fft_dot]
-  y2: conplex, [batch, time, fft_dot]
+  y1: complex, [batch, time, feature_dim]
+  y2: conplex, [batch, time, feature_dim]
   """
   y1_real = tf.math.real(y1)
   y1_imag = tf.math.imag(y1)

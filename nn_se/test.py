@@ -25,13 +25,13 @@ def wav_through_stft_istft():
   wav_dir = testdata_dir.joinpath("speech", "p265", "p265_002.wav")
   wav, sr = audio.read_audio(str(wav_dir))
   wav_batch = np.array([wav], dtype=np.float32)
-  spec = misc_utils.tf_batch_stft(wav_batch, PARAM.frame_length, step)
+  spec = misc_utils.tf_wav2feature(wav_batch, PARAM.frame_length, step)
 
   mag = tf.math.abs(spec)
   phase = tf.math.angle(spec)
   spec2 = tf.complex(mag, 0.0) * tf.exp(tf.complex(0.0, phase))
 
-  wav2 = misc_utils.tf_batch_istft(spec2, PARAM.frame_length, step)
+  wav2 = misc_utils.tf_feature2wav(spec2, PARAM.frame_length, step)
 
   sess = tf.compat.v1.Session()
   wav_np = sess.run(wav2)
@@ -45,7 +45,7 @@ def wav_through_stft_istft_noreconstructed():
   wav_dir = testdata_dir.joinpath("speech", "p265", "p265_002.wav")
   wav, sr = audio.read_audio(str(wav_dir))
   wav_batch = np.array([wav], dtype=np.float32)
-  spec = misc_utils.tf_batch_stft(wav_batch, PARAM.frame_length, PARAM.frame_step)
+  spec = misc_utils.tf_wav2feature(wav_batch, PARAM.frame_length, PARAM.frame_step)
 
   # mag = tf.math.abs(spec)
   # phase = tf.math.angle(spec)
@@ -53,7 +53,7 @@ def wav_through_stft_istft_noreconstructed():
 
   spec2 = spec
 
-  wav2 = misc_utils.tf_batch_istft(spec2, PARAM.frame_length, PARAM.frame_step)
+  wav2 = misc_utils.tf_feature2wav(spec2, PARAM.frame_length, PARAM.frame_step)
 
   sess = tf.compat.v1.Session()
   wav_np = sess.run(wav2)

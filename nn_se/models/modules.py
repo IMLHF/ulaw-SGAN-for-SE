@@ -24,7 +24,7 @@ class RealVariables(object):
     if PARAM.no_cnn:
       pass
     else:
-      conv2d_1 = tf.keras.layers.Conv2D(16, [5,5], padding="same", name='se_net/conv2_1') # -> [batch, time, fft_dot, 8]
+      conv2d_1 = tf.keras.layers.Conv2D(16, [5,5], padding="same", name='se_net/conv2_1') # -> [batch, time, feature_dim, 8]
       conv2d_2 = tf.keras.layers.Conv2D(32, [5,5], dilation_rate=[2,2], padding="same", name='se_net/conv2_2') # -> [batch, t, f, 16]
       conv2d_3 = tf.keras.layers.Conv2D(16, [5,5], dilation_rate=[4,4], padding="same", name='se_net/conv2_3') # -> [batch, t, f, 8]
       conv2d_4 = tf.keras.layers.Conv2D(1, [5,5], padding="same", name='se_net/conv2_4') # -> [batch, t, f, 1]
@@ -53,7 +53,7 @@ class RealVariables(object):
       self.lstm_layers.append(lstm)
 
     # FC
-    self.out_fc = tf.keras.layers.Dense(PARAM.fft_dot, name='se_net/out_fc')
+    self.out_fc = tf.keras.layers.Dense(PARAM.feature_dim, name='se_net/out_fc')
 
     #### discriminator
     # self.d_denses = [tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_1'),
@@ -116,7 +116,7 @@ class RealVariables(object):
       melmat_fun = tf.contrib.signal.linear_to_mel_weight_matrix
       melMatrix = tf.compat.v1.get_variable('FeatureTransformerLayer/FT_MelMat', dtype=tf.float32,
                                             trainable=PARAM.melDenseT_trainable,
-                                            initializer=melmat_fun(PARAM.MelDenseT_n_mel, PARAM.fft_dot,
+                                            initializer=melmat_fun(PARAM.MelDenseT_n_mel, PARAM.feature_dim,
                                                                    PARAM.sampling_rate, 0, PARAM.sampling_rate//2))
       self.melMatrix = melMatrix
 
@@ -131,6 +131,7 @@ class RealVariables(object):
         elif ft_type == "RandomDenseT":
           x = self.RandomDenseT(x)
         elif ft_type == "MelDenseT":
+          assert PARAM.feature_type == "AbsDFT", 'Feature type is not AbsDFT, so cannot apple MelDenseT'
           x = self.MelDenseT(x)
         else:
           raise NotImplementedError
@@ -150,17 +151,12 @@ class Module(object):
                variables: Union[RealVariables],
                mixed_wav_batch,
                clean_wav_batch=None,
-               noise_wav_batch=None,
-               noisy_wav_batch_noLabel=None):
+               noise_wav_batch=None):
     del noise_wav_batch
     self.mixed_wav_batch = mixed_wav_batch # for placeholder
-    mixed_wav_batch_extend = mixed_wav_batch
-    if PARAM.use_noLabel_noisy_speech:
-      self.label_noisy_batchsize = tf.shape(mixed_wav_batch)[0]
-      self.noLabel_noisy_batchsize = tf.shape(noisy_wav_batch_noLabel)[0]
-      mixed_wav_batch_extend = tf.concat([mixed_wav_batch, noisy_wav_batch_noLabel], axis=0)
-    else:
-      del noisy_wav_batch_noLabel
+
+    # save mixed angle
+    self.mixed_angle_batch = tf.angle(misc_utils.tf_wav2DFT(mixed_wav_batch, PARAM.frame_length, PARAM.frame_step))
 
     self.variables = variables
     self.mode = mode
@@ -179,23 +175,21 @@ class Module(object):
       self._lr = misc_utils.noam_scheme(self._lr, self.global_step, warmup_steps=PARAM.warmup_steps)
 
     # nn forward
-    forward_outputs = self.forward(mixed_wav_batch_extend)
+    forward_outputs = self.forward(self.mixed_wav_batch)
     self._est_clean_wav_batch = forward_outputs[-1]
+
 
     # get label and loss
     if mode != PARAM.MODEL_INFER_KEY:
       # labels
       self.clean_wav_batch = clean_wav_batch
-      self.clean_spec_batch = misc_utils.tf_batch_stft(clean_wav_batch, PARAM.frame_length, PARAM.frame_step) # complex label
+      self.clean_spec_batch = misc_utils.tf_wav2DFT(clean_wav_batch, PARAM.frame_length, PARAM.frame_step) # complex label
+      self.clean_mag_batch = misc_utils.tf_wav2AbsDFT(clean_wav_batch, PARAM.frame_length, PARAM.frame_step) # mag label
       # self.noise_wav_batch = mixed_wav_batch - clean_wav_batch
-      # self.noise_spec_batch = misc_utils.tf_batch_stft(self.noise_wav_batch, PARAM.frame_length, PARAM.frame_step)
+      # self.noise_spec_batch = misc_utils.tf_wav2feature(self.noise_wav_batch, PARAM.frame_length, PARAM.frame_step)
       # self.nosie_mag_batch = tf.math.abs(self.noise_spec_batch)
-      if PARAM.feature_type == "ComplexDFT":
-        self.clean_mag_batch = self.clean_spec_batch
-      elif PARAM.feature_type == "DFT":
-        self.clean_mag_batch = tf.math.abs(self.clean_spec_batch) # mag label
-      elif PARAM.feature_type == "DCT":
-        self.clean_mag_batch = self.clean_spec_batch # DCT real feat
+
+      self.mixed_mag_batch = misc_utils.tf_wav2AbsDFT(mixed_wav_batch, PARAM.frame_length, PARAM.frame_step) # as D inputs
 
       # losses
       self._not_transformed_losses, self._transformed_losses, self._d_loss = self.get_loss(forward_outputs)
@@ -223,23 +217,27 @@ class Module(object):
     if mode == PARAM.MODEL_INFER_KEY:
       return
 
-  def CNN_RNN_FC(self, mixed_mag_batch, training=False):
-    outputs = tf.expand_dims(mixed_mag_batch, -1) # [batch, time, fft_dot, 1]
+  def CNN_RNN_FC(self, input_feature_batch, training=False):
+    if PARAM.add_FeatureTrans_in_SE_inputs:
+      input_feature_batch = self.variables.FeatureTransformer(input_feature_batch)
+    outputs = tf.expand_dims(input_feature_batch, -1) # [batch, time, feature_dim, 1]
     _batch_size = tf.shape(outputs)[0]
 
     # CNN
     for conv2d in self.variables.conv2d_layers:
       outputs = conv2d(outputs)
     if len(self.variables.conv2d_layers) > 0:
-      outputs = tf.squeeze(outputs, [-1]) # [batch, time, fft_dot]
+      outputs = tf.squeeze(outputs, [-1]) # [batch, time, feature_dim]
       if PARAM.cnn_shortcut == "add":
-        outputs = tf.add(outputs, mixed_mag_batch)
+        outputs = tf.add(outputs, input_feature_batch)
       elif PARAM.cnn_shortcut == "multiply":
-        outputs = tf.multiply(outputs, mixed_mag_batch)
+        outputs = tf.multiply(outputs, input_feature_batch)
+      else: #None
+        pass
 
 
     # print(outputs.shape.as_list())
-    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.fft_dot])
+    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.feature_dim])
 
     # BLSTM
     # self.blstm_outputs = []
@@ -257,45 +255,52 @@ class Module(object):
     else:
       outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL])
     outputs = self.variables.out_fc(outputs)
-    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.fft_dot])
+    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.feature_dim])
     return outputs
 
 
-  def real_networks_forward(self, mixed_wav_batch_extend):
-    mixed_spec_batch = misc_utils.tf_batch_stft(mixed_wav_batch_extend, PARAM.frame_length, PARAM.frame_step)
-    if PARAM.feature_type == "ComplexDFT":
-      mixed_mag_batch = mixed_spec_batch
-    elif PARAM.feature_type == "DFT":
-      mixed_mag_batch = tf.math.abs(mixed_spec_batch)
-      self.mixed_angle_batch = tf.math.angle(mixed_spec_batch)
-    elif PARAM.feature_type == "DCT":
-      mixed_mag_batch = mixed_spec_batch
+  def real_networks_forward(self, mixed_wav_batch):
+    input_feature_batch = misc_utils.tf_wav2feature(mixed_wav_batch, PARAM.frame_length, PARAM.frame_step)
+
     training = (self.mode == PARAM.MODEL_TRAIN_KEY)
-    self.mixed_mag_batch = mixed_mag_batch
-    input_feature = mixed_mag_batch
-
-    if PARAM.add_FeatureTrans_in_SE_inputs:
-      input_feature = self.variables.FeatureTransformer(mixed_mag_batch)
-
-    mask = self.CNN_RNN_FC(input_feature, training)
+    nn_out = self.CNN_RNN_FC(input_feature_batch, training)
 
     if PARAM.net_out_mask:
-      est_clean_mag_batch = tf.multiply(mask, mixed_mag_batch) # mag estimated
+      if PARAM.mask_type == "IRM":
+        est_feature_batch = tf.multiply(nn_out, input_feature_batch) # mag estimated
+      elif PARAM.mask_type == "cIRM":
+        mask_real, mask_imag = tf.split(nn_out, 2, axis=-1)
+        cIRM = tf.complex(mask_real, mask_imag)
+        mixed_cstft_real, mixed_cstft_imag = tf.split(input_feature_batch, 2, axis=-1)
+        mixed_cstft = tf.complex(mixed_cstft_real, mixed_cstft_imag)
+        est_stft = tf.multiply(cIRM, mixed_cstft)
+        est_real = tf.real(est_stft)
+        est_imag = tf.imag(est_stft)
+        est_feature_batch = tf.concat([est_real, est_imag], axis=-1)
     else:
-      est_clean_mag_batch = mask
+      est_feature_batch = nn_out
 
-    if PARAM.feature_type == "DFT":
-      est_clean_mag_batch = tf.nn.relu(est_clean_mag_batch)
-
-    if PARAM.feature_type == "ComplexDFT":
-      est_clean_spec_batch = est_clean_mag_batch
-    elif PARAM.feature_type == "DFT":
-      est_clean_spec_batch = tf.complex(est_clean_mag_batch, 0.0) * tf.exp(tf.complex(0.0, self.mixed_angle_batch)) # complex
+    if PARAM.feature_type == "WAV":
+      est_clean_wav_batch = misc_utils.tf_feature2wav(est_feature_batch, PARAM.frame_length, PARAM.frame_step)
+      est_clean_mag_batch = misc_utils.tf_wav2AbsDFT(est_clean_wav_batch)
+      est_clean_spec_batch = misc_utils.tf_wav2DFT(est_clean_wav_batch)
+    elif PARAM.feature_type == "AbsDFT":
+      est_clean_mag_batch = tf.nn.relu(est_feature_batch)
+      est_clean_spec_batch = tf.complex(est_feature_batch, 0.0) * tf.exp(tf.complex(0.0, self.mixed_angle_batch))
+      est_clean_wav_batch = misc_utils.tf_feature2wav((est_clean_mag_batch, self.mixed_angle_batch),
+                                                      PARAM.frame_length, PARAM.frame_step)
     elif PARAM.feature_type == "DCT":
-      est_clean_spec_batch = est_clean_mag_batch
-    _mixed_wav_len = tf.shape(mixed_wav_batch_extend)[-1]
-    _est_clean_wav_batch = misc_utils.tf_batch_istft(est_clean_spec_batch, PARAM.frame_length, PARAM.frame_step)
-    est_clean_wav_batch = tf.slice(_est_clean_wav_batch, [0,0], [-1, _mixed_wav_len]) # if stft.pad_end=True, so est_wav may be longger than mixed.
+      est_clean_mag_batch = est_feature_batch
+      est_clean_spec_batch = est_feature_batch
+      est_clean_wav_batch = misc_utils.tf_feature2wav(est_feature_batch, PARAM.frame_length, PARAM.frame_step)
+    elif PARAM.feature_type == "ComplexDFT":
+      est_clean_wav_batch = misc_utils.tf_feature2wav(est_feature_batch, PARAM.frame_length, PARAM.frame_step)
+      cstft_real, cstft_imag = tf.split(est_feature_batch, 2, axis=-1)
+      est_clean_spec_batch = tf.complex(cstft_real, cstft_imag)
+      est_clean_mag_batch = tf.abs(est_clean_spec_batch)
+
+    _mixed_wav_len = tf.shape(mixed_wav_batch)[-1]
+    est_clean_wav_batch = tf.slice(est_clean_wav_batch, [0,0], [-1, _mixed_wav_len]) # if stft.pad_end=True, so est_wav may be longger than mixed.
 
     return est_clean_mag_batch, est_clean_spec_batch, est_clean_wav_batch
 
@@ -372,7 +377,7 @@ class Module(object):
 
 
   @abc.abstractmethod
-  def forward(self, mixed_wav_batch_extend):
+  def forward(self, mixed_wav_batch):
     """
     Returns:
       forward_outputs: pass to get_loss

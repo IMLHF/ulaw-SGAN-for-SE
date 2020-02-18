@@ -102,8 +102,8 @@ class DISCRIMINATOR_AD_MODEL(Module):
                                                     global_step=self.global_step)
 
 
-  def forward(self, mixed_wav_batch_extend):
-    r_outputs = self.real_networks_forward(mixed_wav_batch_extend)
+  def forward(self, mixed_wav_batch):
+    r_outputs = self.real_networks_forward(mixed_wav_batch)
     r_est_clean_mag_batch, r_est_clean_spec_batch, r_est_clean_wav_batch = r_outputs
 
     return r_est_clean_mag_batch, r_est_clean_spec_batch, r_est_clean_wav_batch
@@ -122,14 +122,6 @@ class DISCRIMINATOR_AD_MODEL(Module):
   def get_not_transformed_loss(self, forward_outputs):
     clean_mag_batch_label = self.clean_mag_batch
     r_est_clean_mag_batch, r_est_clean_spec_batch, r_est_clean_wav_batch = forward_outputs
-
-    if PARAM.use_noLabel_noisy_speech: # delete noLabel data
-      r_est_clean_mag_batch, _ = tf.split(r_est_clean_mag_batch,
-                                          [self.label_noisy_batchsize, self.noLabel_noisy_batchsize], axis=0)
-      r_est_clean_spec_batch, _ = tf.split(r_est_clean_spec_batch,
-                                           [self.label_noisy_batchsize, self.noLabel_noisy_batchsize], axis=0)
-      r_est_clean_wav_batch, _ = tf.split(r_est_clean_wav_batch,
-                                          [self.label_noisy_batchsize, self.noLabel_noisy_batchsize], axis=0)
 
     # not_transformed_losses
     self.loss_mag_mse = losses.batch_time_fea_real_mse(r_est_clean_mag_batch, clean_mag_batch_label)
@@ -178,9 +170,6 @@ class DISCRIMINATOR_AD_MODEL(Module):
   def get_transformed_loss(self, forward_outputs):
     clean_mag_batch_label = self.clean_mag_batch
     r_est_clean_mag_batch, _, _ = forward_outputs
-    if PARAM.use_noLabel_noisy_speech: # delete noLabel data
-      r_est_clean_mag_batch, _ = tf.split(r_est_clean_mag_batch,
-                                          [self.label_noisy_batchsize, self.noLabel_noisy_batchsize], axis=0)
 
     # feature transformer
     clean_mag_batch_label = self.variables.FeatureTransformer(clean_mag_batch_label)

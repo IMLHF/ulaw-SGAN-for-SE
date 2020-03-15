@@ -34,8 +34,11 @@ def enhance_one_testset(testset_dir, enhanced_save_dir):
   testset_path = Path(testset_dir)
   noisy_path_list = list(map(str, testset_path.glob("*.wav")))
   func = partial(enhance_mini_process, enhanced_save_dir=enhanced_save_dir)
-  job = Pool(test_processor).imap(func, noisy_path_list)
+  pool = Pool(test_processor)
+  job = pool.imap(func, noisy_path_list)
   list(tqdm(job, "Enhancing", len(noisy_path_list), unit="test wav", ncols=60))
+  pool.close()
+  pool.join()
 
 
 def main():
@@ -60,4 +63,5 @@ if __name__ == "__main__":
   """
   run cmd:
   `OMP_NUM_THREADS=1 python -m xx._3_enhance_testsets 3`
+  [csig,cbak,cvol,pesq,snr,ssnr]=evaluate_all('/home/lhf/worklhf/se-with-FTL/noisy_datasets_16k/clean_testset_wav','/home/lhf/worklhf/se-with-FTL/exp/se_reMagMSE_cnn/enhanced_testsets/noisy_testset_wav')
   """

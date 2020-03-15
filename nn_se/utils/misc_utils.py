@@ -8,57 +8,15 @@ import os
 
 from ..FLAGS import PARAM
 
-def tf_wav2AbsDFT(batch_wav, frame_length, frame_step):
-  cstft = tf.signal.stft(batch_wav, frame_length, frame_step, pad_end=True)
-  feature = tf.math.abs(cstft)
-  return feature
-
-
-def tf_wav2DFT(batch_wav, frame_length, frame_step):
-  cstft = tf.signal.stft(batch_wav, frame_length, frame_step, pad_end=True)
+def tf_wav2stft(batch_wav, frame_length, frame_step, fft_length):
+  cstft = tf.signal.stft(batch_wav, frame_length, frame_step,
+                         fft_length=fft_length, pad_end=True)
   return cstft
 
 
-def tf_wav2feature(batch_wav, frame_length, frame_step):
-  if PARAM.feature_type == "WAV":
-    feature = tf.signal.frame(batch_wav, frame_length, frame_step, pad_end=True)
-  elif PARAM.feature_type == "AbsDFT":
-    feature = tf_wav2AbsDFT(batch_wav, frame_length, frame_step)
-  elif PARAM.feature_type == "DCT":
-    frames = tf.signal.frame(batch_wav, frame_length, frame_step, pad_end=True) # [batch,time,frame_len]
-    hann_win = tf.reshape(tf.signal.hann_window(frame_length), [1,1,-1])
-    frames = frames*hann_win
-    feature = tf.signal.dct(frames, norm='ortho')
-    feature = feature * 10.0
-  elif PARAM.feature_type == "ComplexDFT":
-    cstft = tf.signal.stft(batch_wav, frame_length, frame_step, pad_end=True) # [batch, time, frequency]
-    stft_real = tf.real(cstft)
-    stft_imag = tf.imag(cstft)
-    feature = tf.concat([stft_real, stft_imag], axis=-1)
-
-  return feature
-
-
-def tf_feature2wav(batch_feature, frame_length, frame_step):
-  if PARAM.feature_type == "WAV":
-    signals = tf.signal.overlap_and_add(batch_feature, frame_step)
-  elif PARAM.feature_type == "AbsDFT":
-    batch_mag, batch_angle = batch_feature
-    cstft = tf.complex(batch_mag, 0.0) * tf.exp(tf.complex(0.0, batch_angle))
-    signals = tf.signal.inverse_stft(cstft, frame_length, frame_step,
-                                     window_fn=tf.signal.inverse_stft_window_fn(frame_step))
-  elif PARAM.feature_type == "DCT":
-    # hann_win = tf.reshape(tf.signal.hann_window(frame_length), [1,1,-1])
-    # frames = frames*hann_win
-    batch_feature = batch_feature / 10.0
-    itrans = tf.signal.idct(batch_feature, norm='ortho')
-    signals = tf.signal.overlap_and_add(itrans, frame_step)
-  elif PARAM.feature_type == "ComplexDFT":
-    batch_feature_real, batch_feature_imag = tf.split(batch_feature, 2, axis=-1)
-    cstft = tf.complex(batch_feature_real, batch_feature_imag)
-    signals = tf.signal.inverse_stft(cstft, frame_length, frame_step,
-                                     window_fn=tf.signal.inverse_stft_window_fn(frame_step))
-
+def tf_stft2wav(cstft, frame_length, frame_step, fft_length):
+  signals = tf.signal.inverse_stft(cstft, frame_length, frame_step, fft_length=fft_length,
+                                   window_fn=tf.signal.inverse_stft_window_fn(frame_step))
   return signals
 
 

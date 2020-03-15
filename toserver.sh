@@ -17,9 +17,15 @@ rm */__pycache__* -rf
 
 if [ "$site" == "p40" ]; then
   rsync -avh -e "ssh -p 22 -o ProxyCommand='ssh -p 8695 zhangwenbo5@120.92.114.84 -W %h:%p'" --exclude-from='.gitignore' ./nn_se/* zhangwenbo5@ksai-P40-2:/home/zhangwenbo5/lihongfeng/se-with-FTL/$2
+elif [ "$site" == "v100-3" ]; then
+  rsync -avh -e "ssh -p 22 -o ProxyCommand='ssh -p 8695 zhangwenbo5@120.92.114.84 -W %h:%p'" --exclude-from='.gitignore' ./nn_se/* zhangwenbo5@ksai-v100-3:/home/zhangwenbo5/lihongfeng/se-with-FTL/$2
 elif [ "$site" == "15123" ] || [ "$site" == "15041" ] || [ "$site" == "15043" ]; then
   echo "To $user@$site:~/worklhf/se-with-FTL/$2"
   rsync -avh -e 'ssh -p '$site --exclude-from='.gitignore' ./nn_se/* $user@speaker.is99kdf.xyz:~/worklhf/se-with-FTL/$2
+elif [ "$site" == "15043ali" ]; then
+  echo "To $user@$site:~/worklhf/se-with-FTL/$2"
+  rsync -avh -e 'ssh -p 6662' --exclude-from='.gitignore' ./nn_se/* $user@47.92.169.196:~/worklhf/se-with-FTL/$2
+
 fi
 # -a ：递归到目录，即复制所有文件和子目录。另外，打开归档模式和所有其他选项（相当于 -rlptgoD）
 # -v ：详细输出

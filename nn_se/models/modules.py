@@ -89,31 +89,24 @@ class RealVariables(object):
     if "trainableUlaw" in PARAM.FT_type:
       # belong to discriminator
       self._f_u_var = tf.compat.v1.get_variable('D/FTL/f_u', dtype=tf.float32,
-                                                initializer=tf.constant(PARAM.f_u),
+                                                initializer=tf.constant(0.0),
                                                 trainable=PARAM.f_u_var_trainable)
-      self._f_u = PARAM.u_eps + tf.abs(self._f_u_var)
-
-      def ulaw_fn(x):
-        # x: [batch, time, fea]
-        u = self._f_u
-        u_times = PARAM.u_times
-        y = tf.log(x * u_times * u + 1.0) / tf.log(u_times * u + 1.0)
-        return y
-      self.ulaw_fn = ulaw_fn
+      self._f_u = PARAM.u_eps + tf.abs(self._f_u_var)*PARAM.u_times
 
     if "trainableUlaw_v2" in PARAM.FT_type:
       # belong to discriminator
       self._f_u_var = tf.compat.v1.get_variable('D/FTL/f_u', shape=[1024], dtype=tf.float32,
                                                 initializer=tf.random_normal_initializer(stddev=0.01),
                                                 trainable=PARAM.f_u_var_trainable)
-      self._f_u = PARAM.u_eps + tf.abs(tf.reduce_sum(self._f_u_var))
+      self._f_u = PARAM.u_eps + tf.abs(tf.reduce_sum(self._f_u_var))*PARAM.u_times
 
-      def ulaw_fnv2(x):
-        # x: [batch, time, fea]
-        u = self._f_u
-        y = tf.log(x * u + 1.0) / tf.log(u + 1.0)
-        return y
-      self.ulaw_fnv2 = ulaw_fnv2
+    def ulaw_fn(x):
+      # x: [batch, time, fea]
+      u = self._f_u
+      y = tf.log(x * u + 1.0) / tf.log(u + 1.0)
+      return y
+    self.ulaw_fn = ulaw_fn
+
     # if "RandomDenseT" in PARAM.FT_type:
     #   ## 3. RandomDenseT
     #   self.RandomDenseT = tf.keras.layers.Dense(self.N_RNN_CELL, activation='tanh',
@@ -133,10 +126,8 @@ class RealVariables(object):
 
     def FeatureTransformer(x):
       for ft_type in PARAM.FT_type:
-        if ft_type == "trainableUlaw":
+        if ft_type == "trainableUlaw" or ft_type == "trainableUlaw_v2":
           x = self.ulaw_fn(x)
-        elif ft_type == "trainableUlaw_v2":
-          x = self.ulaw_fnv2(x)
         # elif ft_type == "RandomDenseT":
         #   x = self.RandomDenseT(x)
         # elif ft_type == "MelDenseT":

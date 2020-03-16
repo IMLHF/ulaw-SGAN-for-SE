@@ -91,7 +91,7 @@ class RealVariables(object):
       self._f_u_var = tf.compat.v1.get_variable('D/FTL/f_u', dtype=tf.float32,
                                                 initializer=tf.constant(PARAM.f_u),
                                                 trainable=PARAM.f_u_var_trainable)
-      self._f_u = PARAM.u_eps + tf.nn.relu(self._f_u_var)
+      self._f_u = PARAM.u_eps + tf.abs(self._f_u_var)
 
       def ulaw_fn(x):
         # x: [batch, time, fea]
@@ -100,6 +100,20 @@ class RealVariables(object):
         y = tf.log(x * u_times * u + 1.0) / tf.log(u_times * u + 1.0)
         return y
       self.ulaw_fn = ulaw_fn
+
+    if "trainableUlaw_v2" in PARAM.FT_type:
+      # belong to discriminator
+      self._f_u_var = tf.compat.v1.get_variable('D/FTL/f_u', shape=[1024], dtype=tf.float32,
+                                                initializer=tf.random_normal_initializer(stddev=0.01),
+                                                trainable=PARAM.f_u_var_trainable)
+      self._f_u = PARAM.u_eps + tf.abs(tf.reduce_sum(self._f_u_var))
+
+      def ulaw_fnv2(x):
+        # x: [batch, time, fea]
+        u = self._f_u
+        y = tf.log(x * u + 1.0) / tf.log(u + 1.0)
+        return y
+      self.ulaw_fnv2 = ulaw_fnv2
     # if "RandomDenseT" in PARAM.FT_type:
     #   ## 3. RandomDenseT
     #   self.RandomDenseT = tf.keras.layers.Dense(self.N_RNN_CELL, activation='tanh',
@@ -122,7 +136,7 @@ class RealVariables(object):
         if ft_type == "trainableUlaw":
           x = self.ulaw_fn(x)
         elif ft_type == "trainableUlaw_v2":
-          x = x
+          x = self.ulaw_fnv2(x)
         # elif ft_type == "RandomDenseT":
         #   x = self.RandomDenseT(x)
         # elif ft_type == "MelDenseT":
@@ -202,13 +216,13 @@ class Module(object):
     # nn_se forward
     self.est_wav_features = self._forward()
 
-    self._d_logits, self._d_labels = None, None
-    if len(PARAM.sum_losses_D):
-      self._d_logits, self._d_labels = self._discriminator(self.clean_wav_features.mag_batch,
-                                                           self.est_wav_features.mag_batch,
-                                                           self.mixed_wav_features.mag_batch)
+    if self.mode != PARAM.MODEL_INFER_KEY:
+      self._d_logits, self._d_labels = None, None
+      if len(PARAM.sum_losses_D):
+        self._d_logits, self._d_labels = self._discriminator(self.clean_wav_features.mag_batch,
+                                                             self.est_wav_features.mag_batch,
+                                                             self.mixed_wav_features.mag_batch)
 
-    if mode != PARAM.MODEL_INFER_KEY:
       # losses
       self._losses = self._get_losses(self.est_wav_features, self.clean_wav_features,
                                       self._d_logits, self._d_labels)
@@ -217,14 +231,15 @@ class Module(object):
     self.d_params = tf.compat.v1.trainable_variables(scope='D/')
     self.g_params = tf.compat.v1.trainable_variables(scope='G/')
 
-    # if mode == PARAM.MODEL_TRAIN_KEY:
-    print("\nD PARAMs:")
-    misc_utils.show_variables(self.d_params)
-    print("\nG PARAMs")
-    misc_utils.show_variables(self.g_params)
+    if mode == PARAM.MODEL_TRAIN_KEY:
+      print("\nD PARAMs:")
+      misc_utils.show_variables(self.d_params)
+      print("\nG PARAMs")
+      misc_utils.show_variables(self.g_params)
 
     self.save_variables.extend(self.g_params + self.d_params)
     self.saver = tf.compat.v1.train.Saver(self.save_variables,
+                                          max_to_keep=40,
                                           save_relative_paths=True)
 
     if mode == PARAM.MODEL_VALIDATE_KEY or mode == PARAM.MODEL_INFER_KEY:
@@ -525,4 +540,4 @@ class Module(object):
 
   @property
   def est_clean_wav_batch(self):
-    return self._est_clean_wav_batch
+    return self.est_wav_features.wav_batch

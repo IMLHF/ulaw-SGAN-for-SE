@@ -110,23 +110,28 @@ def main():
   sess = tf.compat.v1.Session(config=config, graph=g)
   sess.run(init)
 
-  # region validation before training
-  misc_utils.print_log("\n\n", train_log_file)
-  misc_utils.print_log("sum_losses_G: "+str(PARAM.sum_losses_G)+"\n", train_log_file)
-  misc_utils.print_log("sum_losses_D: "+str(PARAM.sum_losses_D)+"\n", train_log_file)
-  misc_utils.print_log("show losses: "+str(PARAM.show_losses)+"\n", train_log_file)
-  evalOutputs_prev = eval_one_epoch(sess, val_model, val_inputs.initializer)
-  misc_utils.print_log("                                            "
-                       "                                            "
-                       "                                         \n",
-                       train_log_file, no_time=True)
-  val_msg = "PRERUN.val> sum_loss:[G %.4F, D %.4f], show_losses:%s, Time:%.2Fs.\n" % (
-      evalOutputs_prev.avg_sum_loss_G,
-      evalOutputs_prev.avg_sum_loss_D,
-      evalOutputs_prev.avg_show_losses,
-      evalOutputs_prev.cost_time)
-  misc_utils.print_log(val_msg, train_log_file)
-  # endregion
+  ckpts = tf.train.get_checkpoint_state(str(misc_utils.ckpt_dir()))
+  if ckpts is not None:
+    ckpt = ckpts.model_checkpoint_path
+    train_model.saver.restore(sess, ckpt)
+  else:
+    # region validation before training
+    misc_utils.print_log("\n\n", train_log_file)
+    misc_utils.print_log("sum_losses_G: "+str(PARAM.sum_losses_G)+"\n", train_log_file)
+    misc_utils.print_log("sum_losses_D: "+str(PARAM.sum_losses_D)+"\n", train_log_file)
+    misc_utils.print_log("show losses: "+str(PARAM.show_losses)+"\n", train_log_file)
+    evalOutputs_prev = eval_one_epoch(sess, val_model, val_inputs.initializer)
+    misc_utils.print_log("                                            "
+                         "                                            "
+                         "                                         \n",
+                         train_log_file, no_time=True)
+    val_msg = "PRERUN.val> sum_loss:[G %.4F, D %.4f], show_losses:%s, Time:%.2Fs.\n" % (
+        evalOutputs_prev.avg_sum_loss_G,
+        evalOutputs_prev.avg_sum_loss_D,
+        evalOutputs_prev.avg_show_losses,
+        evalOutputs_prev.cost_time)
+    misc_utils.print_log(val_msg, train_log_file)
+    # endregion
 
   avg_sum_loss_G = None
   avg_sum_loss_D = None
@@ -163,9 +168,9 @@ def main():
 
       print("\r", end="")
       u_str = "#(u %.2e)" % u if len(PARAM.sum_losses_D)>0 else "          "
-      print("train step: %d/%d, cost %.2fs, sum_loss[G %.2f, D %.2f], show_losses %s %s          " % (
+      print("train step: %d/%d, cost %.2fs, sum_loss[G %.2f, D %.2f], show_losses %s, lr %.2e, %s          " % (
             global_step, PARAM.max_step, time.time()-one_batch_time, sum_loss_G, sum_loss_D,
-            str(show_losses), u_str),
+            str(show_losses), lr, u_str),
             flush=True, end="")
       one_batch_time = time.time()
 
@@ -181,8 +186,8 @@ def main():
         misc_utils.print_log("     sum_losses_G: "+str(PARAM.sum_losses_G)+"\n", train_log_file)
         misc_utils.print_log("     sum_losses_D: "+str(PARAM.sum_losses_D)+"\n", train_log_file)
         misc_utils.print_log("     show losses : "+str(PARAM.show_losses)+"\n", train_log_file)
-        misc_utils.print_log("     Train     > sum_loss:[G %.4f, D %.4f], show_losses:%s, %s, Time:%ds.      \n" % (
-            avg_sum_loss_G, avg_sum_loss_D, str(avg_show_losses), u_str, time.time()-save_time),
+        misc_utils.print_log("     Train     > sum_loss:[G %.4f, D %.4f], show_losses:%s, lr:%.2e, %s, Time:%ds.      \n" % (
+            avg_sum_loss_G, avg_sum_loss_D, str(avg_show_losses), lr, u_str, time.time()-save_time),
             train_log_file)
 
         # val
@@ -193,7 +198,7 @@ def main():
             train_log_file)
 
         # save ckpt
-        ckpt_name = PARAM().config_name()+('_step%04d_trloss%.4f_valloss%.4f_lr%.2e_duration%ds' % (
+        ckpt_name = PARAM().config_name()+('_step%06d_trloss%.4f_valloss%.4f_lr%.2e_duration%ds' % (
             global_step, avg_sum_loss_G, evalOutputs.avg_sum_loss_G, lr,
             time.time()-save_time))
         train_model.saver.save(sess, str(ckpt_dir.joinpath(ckpt_name)))

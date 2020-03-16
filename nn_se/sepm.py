@@ -3,6 +3,13 @@ from scipy.linalg import solve_toeplitz,toeplitz
 from pypesq import pypesq # https://github.com/ludlows/python-pesq
 from pystoi.stoi import stoi # https://github.com/mpariente/pystoi
 import numpy as np
+import soundfile as sf
+from multiprocessing import cpu_count
+from multiprocessing import Pool
+import glob
+import os
+from tqdm import tqdm
+from functools import partial
 #################################################
 #
 #  SPEECH ENHANCEMENT PERFORMANCE METRICS
@@ -362,9 +369,6 @@ def composite(clean_speech, processed_speech, fs):
     return segSNR, pesq_mos, Csig, Cbak, Covl
 
 def compareone(args):
-    import soundfile as sf
-    import numpy as np
-
     clean, processed = args
     c,fc = sf.read(clean)
     p,fp = sf.read(processed)
@@ -379,23 +383,19 @@ def compareone(args):
     return name,csig,cbak,covl,pesq,ssnr
 
 def compare(refdir, degdir):
-    from multiprocessing import cpu_count
-    from multiprocessing import Pool
-    import numpy as np
-    import glob, os
-
     if os.path.isfile(refdir) and os.path.isfile(degdir):
        return [ compareone([refdir,degdir]) ]
 
     n = np.min([np.max([cpu_count()-2,1]),20])
-    pool = Pool(processes=n)
     reffiles = sorted(glob.glob('%s/*.wav'%refdir))
     degfiles = sorted(glob.glob('%s/*.wav'%degdir))
     assert len(reffiles)==len(degfiles)
 
-    import tqdm
     args = list(zip(reffiles, degfiles))
-    res = list(tqdm.tqdm(pool.map(compareone, args), "Calculating", ncols=60))
+    # func = partial(compareone)
+    pool = Pool(n)
+    job = pool.imap(compareone, args)
+    res = list(tqdm(job, "Calculating", len(args), unit='wav', ncols=60))
     pool.close()
     pool.join()
     return res

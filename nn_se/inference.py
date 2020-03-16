@@ -13,7 +13,7 @@ class SMG(
                            ("session", "model", "graph"))):
   pass
 
-def build_SMG(ckpt_name=None, batch_size=None, finalizeG=True):
+def build_SMG(ckpt_dir=None, batch_size=None, finalizeG=True):
   g = tf.Graph()
   with g.as_default():
     with tf.name_scope("inputs"):
@@ -36,15 +36,16 @@ def build_SMG(ckpt_name=None, batch_size=None, finalizeG=True):
   sess = tf.compat.v1.Session(config=config, graph=g)
   sess.run(init)
 
-  if ckpt_name:
-    ckpt_dir = str(misc_utils.ckpt_dir().joinpath(ckpt_name))
-  else:
-    ckpt_dir = tf.train.get_checkpoint_state(str(misc_utils.ckpt_dir())).model_checkpoint_path
+  # if ckpt_name:
+  #   ckpt_dir = str(misc_utils.ckpt_dir().joinpath(ckpt_name))
+  # else:
+  #   ckpt_dir = tf.train.get_checkpoint_state(str(misc_utils.ckpt_dir())).model_checkpoint_path
 
-  if ckpt_dir:
-    # test_log_file = misc_utils.test_log_file_dir()
-    # misc_utils.print_log("Restore from " + ckpt_dir + "\n", log_file=str(test_log_file), no_prt=True)
-    infer_model.saver.restore(sess, ckpt_dir)
+  if ckpt_dir is None:
+    ckpt_dir = tf.train.get_checkpoint_state(str(misc_utils.ckpt_dir())).model_checkpoint_path
+  # test_log_file = misc_utils.test_log_file_dir()
+  # misc_utils.print_log("Restore from " + ckpt_dir + "\n", log_file=str(test_log_file), no_prt=True)
+  infer_model.saver.restore(sess, ckpt_dir)
 
   if finalizeG:
     g.finalize()

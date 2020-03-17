@@ -6,11 +6,14 @@ import collections
 from pathlib import Path
 import sys
 
-
 from .models import model_builder
 from .models import modules
 from .dataloader import dataloader
 from .utils import misc_utils
+from .inference import enhance_one_wav
+from .inference import SMG
+from .utils import audio
+from .sepm import compare
 from .FLAGS import PARAM
 
 np.set_printoptions(formatter={'float': '{: 0.4f}'.format})
@@ -58,7 +61,8 @@ def eval_one_epoch(sess, val_model, initializer):
     except tf.errors.OutOfRangeError:
       break
 
-  print("\r", end="")
+  print("\r                                                                       "
+        "                                                                       \r", end="")
   avg_sum_loss_G /= total_i
   avg_sum_loss_D /= total_i
   avg_show_losses /= total_i
@@ -66,6 +70,50 @@ def eval_one_epoch(sess, val_model, initializer):
                      avg_sum_loss_D=avg_sum_loss_D,
                      avg_show_losses=avg_show_losses,
                      cost_time=time.time()-val_s_time)
+
+class TestOutputs(
+    collections.namedtuple("TestOutputs",
+                           ("csig", "cbak", "covl", "pesq", "ssnr",
+                            "cost_time"))):
+  pass
+
+def test_one_epoch(sess, test_model):
+  t1 = time.time()
+  smg = SMG(session=sess, model=test_model, graph=None)
+  testset_name = PARAM.test_noisy_sets[0]
+  testset_dir = misc_utils.datasets_dir().joinpath(testset_name)
+  _dir = misc_utils.enhanced_testsets_save_dir(testset_name)
+  if _dir.exists():
+    import shutil
+    shutil.rmtree(str(_dir))
+  _dir.mkdir(parents=True)
+  enhanced_save_dir = str(_dir)
+
+  noisy_path_list = list(map(str, testset_dir.glob("*.wav")))
+  noisy_num = len(noisy_path_list)
+  for i, noisy_path in enumerate(noisy_path_list):
+    print("\renhance test wavs: %d/%d" % (i, noisy_num), flush=True, end="")
+    noisy_wav, sr = audio.read_audio(noisy_path)
+    enhanced_wav = enhance_one_wav(smg, noisy_wav)
+    noisy_name = Path(noisy_path).stem
+    audio.write_audio(os.path.join(enhanced_save_dir, noisy_name+'_enhanced.wav'),
+                      enhanced_wav, PARAM.sampling_rate)
+  print("\r                                                               \r", end="", flush=True)
+
+  testset_name, cleanset_name = PARAM.test_noisy_sets[0], PARAM.test_clean_sets[0]
+  print("\rCalculate PM %s:" % testset_name, flush=True, end="")
+  ref_dir = str(misc_utils.datasets_dir().joinpath(cleanset_name))
+  deg_dir = str(misc_utils.enhanced_testsets_save_dir(testset_name))
+  res = compare(ref_dir, deg_dir, False)
+
+  pm = np.array([x[1:] for x in res])
+  pm = np.mean(pm, axis=0)
+  pm = tuple(pm)
+  print("\r                                                                    "
+        "                                                                      \r", end="")
+  t2 = time.time()
+  return TestOutputs(csig=pm[0], cbak=pm[1], covl=pm[2], pesq=pm[3], ssnr=pm[4],
+                     cost_time=t2-t1)
 
 
 def main():
@@ -90,6 +138,7 @@ def main():
                                                                         clean_trainset_wav)
       val_inputs = dataloader.get_batch_inputs_from_nosiyCleanDataset(noisy_valset_wav,
                                                                       clean_valset_wav)
+      test_noisy_ph = tf.compat.v1.placeholder(tf.float32, shape=[1, None], name='mixed_batch')
 
     ModelC, VariablesC = model_builder.get_model_class_and_var()
 
@@ -97,6 +146,7 @@ def main():
     train_model = ModelC(PARAM.MODEL_TRAIN_KEY, variables, train_inputs.mixed, train_inputs.clean)
     # tf.compat.v1.get_variable_scope().reuse_variables()
     val_model = ModelC(PARAM.MODEL_VALIDATE_KEY, variables, val_inputs.mixed,val_inputs.clean)
+    test_model = ModelC(PARAM.MODEL_INFER_KEY, variables, test_noisy_ph)
     init = tf.group(tf.compat.v1.global_variables_initializer(),
                     tf.compat.v1.local_variables_initializer())
     # misc_utils.show_variables(train_model.save_variables)
@@ -121,11 +171,7 @@ def main():
     misc_utils.print_log("sum_losses_D: "+str(PARAM.sum_losses_D)+"\n", train_log_file)
     misc_utils.print_log("show losses: "+str(PARAM.show_losses)+"\n", train_log_file)
     evalOutputs_prev = eval_one_epoch(sess, val_model, val_inputs.initializer)
-    misc_utils.print_log("                                            "
-                         "                                            "
-                         "                                         \n",
-                         train_log_file, no_time=True)
-    val_msg = "PRERUN.val> sum_loss:[G %.4F, D %.4f], show_losses:%s, Time:%.2Fs.\n" % (
+    val_msg = "PRERUN.val> sum_loss:[G %.4F, D %.4f], show_losses:%s, Time:%.2Fs.\n\n\n" % (
         evalOutputs_prev.avg_sum_loss_G,
         evalOutputs_prev.avg_sum_loss_D,
         evalOutputs_prev.avg_show_losses,
@@ -166,22 +212,20 @@ def main():
         avg_sum_loss_D += sum_loss_D
         avg_show_losses += show_losses
 
-      print("\r", end="")
       u_str = "#(u %.2e)" % u if len(PARAM.sum_losses_D)>0 else "          "
-      print("train step: %d/%d, cost %.2fs, sum_loss[G %.2f, D %.2f], show_losses %s, lr %.2e, %s          " % (
+      print("\rtrain step: %d/%d, cost %.2fs, sum_loss[G %.2f, D %.2f], show_losses %s, lr %.2e, %s          " % (
             global_step, PARAM.max_step, time.time()-one_batch_time, sum_loss_G, sum_loss_D,
             str(show_losses), lr, u_str),
             flush=True, end="")
       one_batch_time = time.time()
 
       if global_step % PARAM.step_to_save == 0:
-        print("\r", end="")
+        print("\r                                                                           "
+              "                                                                             "
+              "                                                                   \r", end="")
         avg_sum_loss_G /= PARAM.step_to_save
         avg_sum_loss_D /= PARAM.step_to_save
         avg_show_losses /= PARAM.step_to_save
-        misc_utils.print_log("                                                                        "
-                             "                                                                        "
-                             "                             \n\n", train_log_file, no_time=True)
         misc_utils.print_log("  Save step %03d:\n" % global_step, train_log_file)
         misc_utils.print_log("     sum_losses_G: "+str(PARAM.sum_losses_G)+"\n", train_log_file)
         misc_utils.print_log("     sum_losses_D: "+str(PARAM.sum_losses_D)+"\n", train_log_file)
@@ -197,11 +241,21 @@ def main():
             str(evalOutputs.avg_show_losses), evalOutputs.cost_time),
             train_log_file)
 
+        # test
+        testOutputs = test_one_epoch(sess, test_model)
+        misc_utils.print_log("     Test      > Csig: %.3f, Cbak: %.3f, Covl: %.3f, pesq: %.3f,"
+                             " ssnr: %.4f, Time:%ds.           \n" % (
+                                 testOutputs.csig, testOutputs.cbak, testOutputs.covl, testOutputs.pesq,
+                                 testOutputs.ssnr, testOutputs.cost_time),
+                             train_log_file)
+
         # save ckpt
         ckpt_name = PARAM().config_name()+('_step%06d_trloss%.4f_valloss%.4f_lr%.2e_duration%ds' % (
             global_step, avg_sum_loss_G, evalOutputs.avg_sum_loss_G, lr,
             time.time()-save_time))
         train_model.saver.save(sess, str(ckpt_dir.joinpath(ckpt_name)))
+
+        misc_utils.print_log("\n", train_log_file, no_time=True)
 
         # init var
         avg_sum_loss_G = None

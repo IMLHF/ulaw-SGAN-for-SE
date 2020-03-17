@@ -375,14 +375,18 @@ def compareone(args):
     assert len(c)==len(p), 'c.shape=%r, p.shape=%r'%(c.shape,p.shape)
     assert fc == fp, 'fc=%d fp=%d'%(fc,fd)
 
-    ssnr,pesq,csig,cbak,covl=composite(c,p,fc)
+    try:
+      ssnr,pesq,csig,cbak,covl=composite(c,p,fc)
+    except np.linalg.LinAlgError:
+      print("np.linalg.LinAlgError", flush=True)
+      ssnr,pesq,csig,cbak,covl = 0.0, 0.0, 0.0, 0.0, 0.0
     name = clean.split('/')[-1]
     # print('[%s] ssnr:%5.2f pesq:%5.2f csig:%5.2f cbak:%5.2f covl:%5.2f'%(name,
     #             ssnr, pesq, csig, cbak, covl), flush=True)
 
     return name,csig,cbak,covl,pesq,ssnr
 
-def compare(refdir, degdir):
+def compare(refdir, degdir, use_tqdm=True):
     if os.path.isfile(refdir) and os.path.isfile(degdir):
        return [ compareone([refdir,degdir]) ]
 
@@ -395,7 +399,10 @@ def compare(refdir, degdir):
     # func = partial(compareone)
     pool = Pool(n)
     job = pool.imap(compareone, args)
-    res = list(tqdm(job, "Calculating", len(args), unit='wav', ncols=60))
+    if use_tqdm:
+      res = list(tqdm(job, "Calculating", len(args), unit='wav', ncols=60))
+    else:
+      res = list(job)
     pool.close()
     pool.join()
     return res

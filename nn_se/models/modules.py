@@ -89,7 +89,7 @@ class RealVariables(object):
     if "trainableUlaw" in PARAM.FT_type:
       # belong to discriminator
       self._f_u_var = tf.compat.v1.get_variable('D/FTL/f_u', dtype=tf.float32,
-                                                initializer=tf.constant(0.0),
+                                                initializer=tf.constant(0.0001),
                                                 trainable=PARAM.f_u_var_trainable)
       self._f_u = PARAM.u_eps + tf.abs(self._f_u_var)*PARAM.u_times
 

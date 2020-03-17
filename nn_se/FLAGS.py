@@ -80,12 +80,6 @@ class BaseConfig(StaticKey):
 
   # losses optimized in "DISCRIMINATOR_AD_MODEL"
   frame_level_D = False # discriminate frame is noisy or clean
-  FT_type = [] # feature transformer type: "LogValueT", "RandomDenseT", "MelDenseT", "SelfAdaptLogT"
-  # MelDenseT_n_mel = 80
-  # melDenseT_trainable = True
-  # melMat: tf.contrib.signal.linear_to_mel_weight_matrix(129,129,8000,125,3900)
-  # plt.pcolormesh
-  # import matplotlib.pyplot as plt
 
   """
   @param losses
@@ -104,30 +98,22 @@ class BaseConfig(StaticKey):
   add_noisy_class_in_D = False
 
   u_times = 1.0
-  f_u = 0.001 # smaller, curve straighter
   u_eps = 1e-6
   f_u_var_trainable = True
+  n_u_var = 1024
+  FT_type = [] # feature transformer type: "trainableUlaw", "trainableUlaw_v2"
+  # MelDenseT_n_mel = 80
+  # melDenseT_trainable = True
+  # melMat: tf.contrib.signal.linear_to_mel_weight_matrix(129,129,8000,125,3900)
+  # plt.pcolormesh
+  # import matplotlib.pyplot as plt
 
 
 class p40(BaseConfig):
   root_dir = '/home/zhangwenbo5/lihongfeng/se-with-FTL'
 
 
-class se_magMSE(p40): # done p40
-  '''
-  mag mse
-  '''
-  GPU_PARTION = 0.23
-  losses_position = ['not_transformed_losses']
-  not_transformed_losses = ['loss_mag_mse']
-  # relative_loss_epsilon = 0.1
-  blstm_layers = 3
-
-  stop_criterion_losses = ['loss_mag_mse']
-  show_losses = ['loss_mag_mse', ]
-
-
-class dse_ulaw0100(p40): # running p40
+class dse_ulaw0100(p40): # done v100
   '''
   u-law 100times
   '''
@@ -138,24 +124,67 @@ class dse_ulaw0100(p40): # running p40
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
 
-  f_u = 0.0001 ####
   u_times = 100.0 ####
 
-class dse_ulaw0100_b64(p40): # running p40
+class dse_ulawV2_var1024(p40): # done v100
   '''
-  u-law 100times
+  u-law v2 1024 var
   '''
-  FT_type = ["trainableUlaw"]
+  FT_type = ["trainableUlaw_v2"]
   sum_losses_G = ["FTloss_mag_mse"]
   sum_losses_D = ["d_loss"]
   show_losses = ["FTloss_mag_mse", "d_loss",
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
+  n_u_var = 1024
 
-  f_u = 0.0001 ####
-  u_times = 100.0 ####
-  batch_size = 64
+class dse_ulawV2_var100(p40): # running v100
+  '''
+  u-law v2 1024 var
+  '''
+  FT_type = ["trainableUlaw_v2"]
+  sum_losses_G = ["FTloss_mag_mse"]
+  sum_losses_D = ["d_loss"]
+  show_losses = ["FTloss_mag_mse", "d_loss",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+  n_u_var = 100
 
-PARAM = dse_ulaw0100_b64
+class dse_ulaw0100_stftMSE(p40): # running v100
+  '''
+  u-law 100times
+  '''
+  FT_type = ["trainableUlaw"]
+  sum_losses_G = ["FTloss_mag_mse", "loss_stft_mse"]
+  sum_losses_D = ["d_loss"]
+  show_losses = ["FTloss_mag_mse", "d_loss",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+  u_times = 100.0
 
-# CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=4 python -m dse_ulaw0100_b64._2_train
+class dse_ulawV2var1024_stftMSE(p40): # running v100
+  '''
+  u-law v2 1024 var + stftMSE
+  '''
+  FT_type = ["trainableUlaw_v2"]
+  sum_losses_G = ["FTloss_mag_mse", "loss_stft_mse"]
+  sum_losses_D = ["d_loss"]
+  show_losses = ["FTloss_mag_mse", "d_loss",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+
+class dse_ulawV2var1024_stftMSE_RMSProp(p40): # running v100
+  '''
+  u-law v2 1024 var + stftMSE + RMSProp
+  '''
+  FT_type = ["trainableUlaw_v2"]
+  sum_losses_G = ["FTloss_mag_mse", "loss_stft_mse"]
+  sum_losses_D = ["d_loss"]
+  show_losses = ["FTloss_mag_mse", "d_loss",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+  optimizer = "RMSProp"
+
+PARAM = dse_ulawV2_var100
+
+# CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=4 python -m dse_ulawV2_var100._2_train

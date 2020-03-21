@@ -63,6 +63,7 @@ class BaseConfig(StaticKey):
   lstm_layers = 0
   D_blstm_layers = 2
   D_lstm_layers = 0
+  blstm_drop_rate = 0.3
   rnn_units = 512
   rlstmCell_implementation = 2
   feature_dim = 257
@@ -80,6 +81,8 @@ class BaseConfig(StaticKey):
 
   # losses optimized in "DISCRIMINATOR_AD_MODEL"
   frame_level_D = False # discriminate frame is noisy or clean
+
+  stft_norm_method = "polar" # polar | div
 
   """
   @param losses
@@ -100,7 +103,7 @@ class BaseConfig(StaticKey):
   u_times = 1.0
   u_eps = 1e-6
   f_u_var_trainable = True
-  n_u_var = 1024
+  n_u_var = 128
   FT_type = [] # feature transformer type: "trainableUlaw", "trainableUlaw_v2"
   # MelDenseT_n_mel = 80
   # melDenseT_trainable = True
@@ -112,23 +115,11 @@ class BaseConfig(StaticKey):
 class p40(BaseConfig):
   root_dir = '/home/zhangwenbo5/lihongfeng/se-with-FTL'
 
+###########################################
 
-class dse_ulaw0100(p40): # done v100
+class dse_ulawV2(p40): # running v100
   '''
-  u-law 100times
-  '''
-  FT_type = ["trainableUlaw"]
-  sum_losses_G = ["FTloss_mag_mse"]
-  sum_losses_D = ["d_loss"]
-  show_losses = ["FTloss_mag_mse", "d_loss",
-                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
-  stop_criterion_losses = []
-
-  u_times = 100.0 ####
-
-class dse_ulawV2_var1024(p40): # done v100
-  '''
-  u-law v2 1024 var
+  u-law v2 128 var
   '''
   FT_type = ["trainableUlaw_v2"]
   sum_losses_G = ["FTloss_mag_mse"]
@@ -136,35 +127,11 @@ class dse_ulawV2_var1024(p40): # done v100
   show_losses = ["FTloss_mag_mse", "d_loss",
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
-  n_u_var = 1024
+  # blstm_drop_rate = ?
 
-class dse_ulawV2_var100(p40): # running v100
+class dse_ulawV2_stftMSE10(p40): # running v100
   '''
-  u-law v2 1024 var
-  '''
-  FT_type = ["trainableUlaw_v2"]
-  sum_losses_G = ["FTloss_mag_mse"]
-  sum_losses_D = ["d_loss"]
-  show_losses = ["FTloss_mag_mse", "d_loss",
-                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
-  stop_criterion_losses = []
-  n_u_var = 100
-
-class dse_ulaw0100_stftMSE(p40): # running v100
-  '''
-  u-law 100times
-  '''
-  FT_type = ["trainableUlaw"]
-  sum_losses_G = ["FTloss_mag_mse", "loss_stft_mse"]
-  sum_losses_D = ["d_loss"]
-  show_losses = ["FTloss_mag_mse", "d_loss",
-                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
-  stop_criterion_losses = []
-  u_times = 100.0
-
-class dse_ulawV2var1024_stftMSE(p40): # running v100
-  '''
-  u-law v2 1024 var + stftMSE
+  u-law v2 128 var + stftMSE*1.0
   '''
   FT_type = ["trainableUlaw_v2"]
   sum_losses_G = ["FTloss_mag_mse", "loss_stft_mse"]
@@ -173,18 +140,18 @@ class dse_ulawV2var1024_stftMSE(p40): # running v100
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
 
-class dse_ulawV2var1024_stftMSE_RMSProp(p40): # running v100
+class dse_ulawV2_stftMSE05(p40): # running v100
   '''
-  u-law v2 1024 var + stftMSE + RMSProp
+  u-law v2 128 var + stftMSE*1.0
   '''
   FT_type = ["trainableUlaw_v2"]
   sum_losses_G = ["FTloss_mag_mse", "loss_stft_mse"]
+  sum_losses_G_w = [1.0, 0.5]
   sum_losses_D = ["d_loss"]
   show_losses = ["FTloss_mag_mse", "d_loss",
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
-  optimizer = "RMSProp"
 
-PARAM = dse_ulawV2_var100
+PARAM = ulawV2var1024_stftMSE_divnorm
 
-# CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=4 python -m dse_ulawV2_var100._2_train
+# CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=4 python -m ulawV2var1024_stftMSE_divnorm._2_train

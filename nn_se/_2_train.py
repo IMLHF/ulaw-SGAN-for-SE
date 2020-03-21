@@ -185,27 +185,29 @@ def main():
   avg_sum_loss_D = None
   avg_show_losses = None
   save_time = time.time()
+  init_inputs_times = 1
   sess.run(train_inputs.initializer)
   while True:
     try:
       one_batch_time = time.time()
       (sum_loss_G, sum_loss_D, show_losses, _,
-       global_step, lr, u
+       lr, u
        ) = sess.run([train_model.losses.sum_loss_G,
                      train_model.losses.sum_loss_D,
                      train_model.losses.show_losses,
                      train_model.train_op,
-                     train_model.global_step,
                      train_model.lr,
                      train_model.discriminator._f_u,
                     #  train_model.adam_p[:2]
                      ])
+      global_step = sess.run(train_model.global_step)
       # print(adam_p)
       if global_step > PARAM.max_step:
         sess.close()
         misc_utils.print_log("\n", train_log_file, no_time=True)
         msg = '################### Training Done. ###################\n'
         misc_utils.print_log(msg, train_log_file)
+        print('initial inputs %d times' % init_inputs_times)
         break
       if avg_sum_loss_G is None:
         avg_sum_loss_G = sum_loss_G
@@ -268,6 +270,7 @@ def main():
         save_time = time.time()
     except tf.errors.OutOfRangeError:
       sess.run(train_inputs.initializer)
+      init_inputs_times += 1
 
 
 if __name__ == "__main__":

@@ -291,7 +291,7 @@ class Module(object):
 
     # for lr warmup
     if PARAM.use_lr_warmup:
-      self._lr = misc_utils.noam_scheme(self._lr, self.global_step, warmup_steps=PARAM.warmup_steps)
+      self._lr = misc_utils.noam_scheme(self._lr, self._global_step, warmup_steps=PARAM.warmup_steps)
 
     # trainable_variables = tf.compat.v1.trainable_variables()
     self.d_params = self.discriminator.trainable_variables
@@ -338,7 +338,7 @@ class Module(object):
     else:
       self._train_op_D = tf.no_op()
 
-    self._global_step_increase = self.global_step.assign_add(1)
+    self._global_step_increase = self._global_step.assign_add(1)
     self._train_op = tf.group(self._train_op_D, self._train_op_G, self._global_step_increase)
     # self.adam_p = self.optimizer.variables()
     # for p in self.adam_p:

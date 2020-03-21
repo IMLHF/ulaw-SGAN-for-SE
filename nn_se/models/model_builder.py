@@ -3,8 +3,8 @@ from . import modules
 from ..FLAGS import PARAM
 
 def get_model_class_and_var():
-  model_class, var = {
-      'DISCRIMINATOR_AD_MODEL': (modules.Module, modules.RealVariables),
+  model_class, g, d = {
+      'DISCRIMINATOR_AD_MODEL': (modules.Module, modules.Generator, modules.Discriminator),
   }[PARAM.model_name]
 
-  return model_class, var
+  return model_class, g, d

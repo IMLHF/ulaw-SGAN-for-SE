@@ -50,6 +50,7 @@ def eval_one_epoch(sess, val_model, initializer):
         avg_sum_loss_D += sum_loss_D
         avg_show_losses += show_losses
       i += 1
+      # if i==5: break
       print("\r", end="")
       print("validate: %d/%d, cost %.2fs, sum_loss[G %.2f, D %.2f], show_losses %s"
             "          " % (
@@ -140,13 +141,14 @@ def main():
                                                                       clean_valset_wav)
       test_noisy_ph = tf.compat.v1.placeholder(tf.float32, shape=[1, None], name='mixed_batch')
 
-    ModelC, VariablesC = model_builder.get_model_class_and_var()
+    ModelC, G, D = model_builder.get_model_class_and_var()
 
-    variables = VariablesC()
-    train_model = ModelC(PARAM.MODEL_TRAIN_KEY, variables, train_inputs.mixed, train_inputs.clean)
+    generator = G()
+    discriminator = D()
+    train_model = ModelC(PARAM.MODEL_TRAIN_KEY, generator, discriminator, train_inputs.mixed, train_inputs.clean)
     # tf.compat.v1.get_variable_scope().reuse_variables()
-    val_model = ModelC(PARAM.MODEL_VALIDATE_KEY, variables, val_inputs.mixed,val_inputs.clean)
-    test_model = ModelC(PARAM.MODEL_INFER_KEY, variables, test_noisy_ph)
+    val_model = ModelC(PARAM.MODEL_VALIDATE_KEY, generator, discriminator, val_inputs.mixed,val_inputs.clean)
+    test_model = ModelC(PARAM.MODEL_INFER_KEY, generator, discriminator, test_noisy_ph)
     init = tf.group(tf.compat.v1.global_variables_initializer(),
                     tf.compat.v1.local_variables_initializer())
     # misc_utils.show_variables(train_model.save_variables)
@@ -188,15 +190,17 @@ def main():
     try:
       one_batch_time = time.time()
       (sum_loss_G, sum_loss_D, show_losses, _,
-       global_step, lr, u,
+       global_step, lr, u
        ) = sess.run([train_model.losses.sum_loss_G,
                      train_model.losses.sum_loss_D,
                      train_model.losses.show_losses,
                      train_model.train_op,
                      train_model.global_step,
                      train_model.lr,
-                     train_model.variables._f_u,
+                     train_model.discriminator._f_u,
+                    #  train_model.adam_p[:2]
                      ])
+      # print(adam_p)
       if global_step > PARAM.max_step:
         sess.close()
         misc_utils.print_log("\n", train_log_file, no_time=True)
@@ -212,7 +216,7 @@ def main():
         avg_sum_loss_D += sum_loss_D
         avg_show_losses += show_losses
 
-      u_str = "#(u %.2e)" % u if len(PARAM.sum_losses_D)>0 else "          "
+      u_str = "#(u %.2e)" % u
       print("\rtrain step: %d/%d, cost %.2fs, sum_loss[G %.2f, D %.2f], show_losses %s, lr %.2e, %s          " % (
             global_step, PARAM.max_step, time.time()-one_batch_time, sum_loss_G, sum_loss_D,
             str(show_losses), lr, u_str),

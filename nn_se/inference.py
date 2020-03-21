@@ -19,10 +19,11 @@ def build_SMG(ckpt_dir=None, batch_size=None, finalizeG=True):
     with tf.name_scope("inputs"):
       mixed_batch = tf.compat.v1.placeholder(tf.float32, shape=[batch_size, None], name='mixed_batch')
 
-    ModelC, VariablesC = model_builder.get_model_class_and_var()
+    ModelC, G, D = model_builder.get_model_class_and_var()
 
-    variables = VariablesC()
-    infer_model = ModelC(PARAM.MODEL_INFER_KEY, variables, mixed_batch)
+    generator = G()
+    discriminator = D()
+    infer_model = ModelC(PARAM.MODEL_INFER_KEY, generator, discriminator, mixed_batch)
     init = tf.group(tf.compat.v1.global_variables_initializer(),
                     tf.compat.v1.local_variables_initializer())
     # misc_utils.show_variables(infer_model.save_variables)

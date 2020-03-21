@@ -8,16 +8,13 @@ from ..utils import losses
 from ..utils import misc_utils
 
 
-class RealVariables(object):
-  """
-  Real Value NN Variables
-  """
+class Generator(tf.keras.Model):
   def __init__(self):
-    with tf.compat.v1.variable_scope("compat.v1.var", reuse=tf.compat.v1.AUTO_REUSE):
-      self._global_step = tf.compat.v1.get_variable('global_step', dtype=tf.int32,
-                                                    initializer=tf.constant(1), trainable=False)
-      self._lr = tf.compat.v1.get_variable('lr', dtype=tf.float32, trainable=False,
-                                           initializer=tf.constant(PARAM.learning_rate))
+    super(Generator, self).__init__()
+    self._global_step = self.add_variable('global_step', dtype=tf.int32,
+                                          initializer=tf.constant_initializer(1), trainable=False)
+    self._lr = self.add_variable('lr', dtype=tf.float32, trainable=False,
+                                 initializer=tf.constant_initializer(PARAM.learning_rate))
 
     # BLSTM
     self.N_RNN_CELL = PARAM.rnn_units
@@ -50,12 +47,34 @@ class RealVariables(object):
     # FC
     self.out_fc = tf.keras.layers.Dense(PARAM.feature_dim, name='G/out_fc')
 
+  def call(self, input_feature_batch, training=False):
+    outputs = input_feature_batch # [batch, time, feature_dim]
+    _batch_size = tf.shape(outputs)[0]
+
+    # BLSTM
+    # self.blstm_outputs = []
+    for blstm in self.blstm_layers:
+      outputs = blstm(outputs, training=training)
+      # self.blstm_outputs.append(outputs)
+
+    # LSTM
+    for lstm in self.lstm_layers:
+      outputs = lstm(outputs, training=training)
+
+    # FC
+    if len(self.blstm_layers) > 0 and len(self.lstm_layers) <= 0:
+      outputs = tf.reshape(outputs, [-1, self.N_RNN_CELL*2])
+    else:
+      outputs = tf.reshape(outputs, [-1, self.N_RNN_CELL])
+    outputs = self.out_fc(outputs)
+    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.feature_dim])
+    return outputs
+
+class Discriminator(tf.keras.Model):
+  def __init__(self):
+    super(Discriminator, self).__init__()
     #### discriminator
-    # self.d_denses = [tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_1'),
-    #                  tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_2'),
-    #                  tf.keras.layers.Dense(self.N_RNN_CELL//2, name='discriminator/d_dense_3'),
-    #                  tf.keras.layers.Dense(self.N_RNN_CELL, name='discriminator/d_dense_4'),
-    #                  tf.keras.layers.Dense(2, name='discriminator/d_dense_5')]
+    self.N_RNN_CELL = PARAM.rnn_units
     self.D_blstm_layers = []
     for i in range(1, PARAM.D_blstm_layers+1):
       # tf.keras.layers.LSTM
@@ -88,16 +107,16 @@ class RealVariables(object):
     ### FeatureTransformerLayers
     if "trainableUlaw" in PARAM.FT_type:
       # belong to discriminator
-      self._f_u_var = tf.compat.v1.get_variable('D/FTL/f_u', dtype=tf.float32,
-                                                initializer=tf.constant(0.0001),
-                                                trainable=PARAM.f_u_var_trainable)
+      self._f_u_var = self.add_variable('D/FTL/f_u', dtype=tf.float32,
+                                        initializer=tf.constant_initializer(0.0001),
+                                        trainable=PARAM.f_u_var_trainable)
       self._f_u = PARAM.u_eps + tf.abs(self._f_u_var)*PARAM.u_times
 
     if "trainableUlaw_v2" in PARAM.FT_type:
       # belong to discriminator
-      self._f_u_var = tf.compat.v1.get_variable('D/FTL/f_u', shape=[PARAM.n_u_var], dtype=tf.float32,
-                                                initializer=tf.random_normal_initializer(stddev=0.01),
-                                                trainable=PARAM.f_u_var_trainable)
+      self._f_u_var = self.add_variable('D/FTL/f_u', shape=[PARAM.n_u_var], dtype=tf.float32,
+                                        initializer=tf.random_normal_initializer(stddev=0.01),
+                                        trainable=PARAM.f_u_var_trainable)
       self._f_u = PARAM.u_eps + tf.abs(tf.reduce_sum(self._f_u_var))*PARAM.u_times
 
     def ulaw_fn(x):
@@ -137,6 +156,55 @@ class RealVariables(object):
       return x
     self.FeatureTransformer = FeatureTransformer
 
+  def call(self, clean_mag_batch, est_mag_batch, mixed_mag_batch, training):
+    clean_fea_batch = clean_mag_batch
+    est_fea_batch = est_mag_batch
+    mixed_fea_batch = mixed_mag_batch
+    if PARAM.add_noisy_class_in_D:
+      outputs = tf.concat([clean_fea_batch, est_fea_batch, mixed_fea_batch], axis=0)
+    else:
+      outputs = tf.concat([clean_fea_batch, est_fea_batch], axis=0)
+
+    # Features Transformer
+    outputs = self.FeatureTransformer(outputs)
+    _batch_size = outputs.shape[0]
+
+    if PARAM.frame_level_D:
+      zeros = tf.zeros(clean_fea_batch.shape[0:2], dtype=tf.int32)
+      ones = tf.ones(est_fea_batch.shape[0:2], dtype=tf.int32)
+      twos = tf.ones(mixed_fea_batch.shape[0:2], dtype=tf.int32) * 2
+    else:
+      zeros = tf.zeros(clean_fea_batch.shape[0], dtype=tf.int32)
+      ones = tf.ones(est_fea_batch.shape[0], dtype=tf.int32)
+      twos = tf.ones(mixed_fea_batch.shape[0], dtype=tf.int32) * 2
+    if PARAM.add_noisy_class_in_D:
+      labels = tf.concat([zeros, ones, twos], axis=0)
+    else:
+      labels = tf.concat([zeros, ones], axis=0)
+    onehot_labels = tf.one_hot(labels, 3 if PARAM.add_noisy_class_in_D else 2)
+    # print(outputs.shape.as_list(), ' dddddddddddddddddddddd test shape')
+
+    for blstm in self.D_blstm_layers:
+      outputs = blstm(outputs, training=training)
+
+    for lstm in self.D_lstm_layers:
+      outputs = lstm(outputs, training=training)
+
+    if not PARAM.frame_level_D:
+      outputs = outputs[:,-1,:]
+
+    # FC
+    if len(self.D_blstm_layers) > 0 and len(self.D_lstm_layers) <= 0:
+      outputs = tf.reshape(outputs, [-1, self.N_RNN_CELL*2])
+    else:
+      outputs = tf.reshape(outputs, [-1, self.N_RNN_CELL])
+    outputs = self.D_out_fc(outputs)
+    logits = outputs
+    if PARAM.frame_level_D:
+      logits = tf.reshape(outputs, [_batch_size, -1, 3 if PARAM.add_noisy_class_in_D else 2])
+    return logits, onehot_labels
+
+
 class WavFeatures(
     collections.namedtuple("WavFeatures",
                            ("wav_batch", # [N, L]
@@ -162,11 +230,13 @@ class Module(object):
   """
   def __init__(self,
                mode,
-               variables: Union[RealVariables],
+               generator: Union[Generator],
+               discriminator: Union[Discriminator],
                mixed_wav_batch,
                clean_wav_batch=None):
     self.mode = mode
-    self.variables = variables
+    self.generator = generator
+    self.discriminator = discriminator
     mixed_stft_batch = misc_utils.tf_wav2stft(mixed_wav_batch, PARAM.frame_length,
                                               PARAM.frame_step, PARAM.fft_length)  # [N, T, F]
     mixed_mag_batch = tf.abs(mixed_stft_batch) # [N, F, T]
@@ -196,11 +266,24 @@ class Module(object):
                                             angle_batch=clean_angle_batch,
                                             normed_stft_batch=clean_normed_stft_batch)
 
+    # nn_se forward
+    self.est_wav_features = self._forward()
+
+    if self.mode != PARAM.MODEL_INFER_KEY:
+      self._d_logits, self._d_labels = None, None
+      training = (self.mode == PARAM.MODEL_TRAIN_KEY)
+      self._d_logits, self._d_labels = self.discriminator(self.clean_wav_features.mag_batch,
+                                                          self.est_wav_features.mag_batch,
+                                                          self.mixed_wav_features.mag_batch,
+                                                          training)
+
+      # losses
+      self._losses = self._get_losses(self.est_wav_features, self.clean_wav_features,
+                                      self._d_logits, self._d_labels)
 
     # global_step, lr, vars
-    self._global_step = self.variables._global_step
-    self._lr = self.variables._lr
-    self.save_variables = [self.global_step, self._lr]
+    self._global_step = self.generator._global_step
+    self._lr = self.generator._lr
 
     # for lr halving
     self.new_lr = tf.compat.v1.placeholder(tf.float32, name='new_lr')
@@ -210,97 +293,61 @@ class Module(object):
     if PARAM.use_lr_warmup:
       self._lr = misc_utils.noam_scheme(self._lr, self.global_step, warmup_steps=PARAM.warmup_steps)
 
-    # nn_se forward
-    self.est_wav_features = self._forward()
-
-    if self.mode != PARAM.MODEL_INFER_KEY:
-      self._d_logits, self._d_labels = None, None
-      if len(PARAM.sum_losses_D):
-        self._d_logits, self._d_labels = self._discriminator(self.clean_wav_features.mag_batch,
-                                                             self.est_wav_features.mag_batch,
-                                                             self.mixed_wav_features.mag_batch)
-
-      # losses
-      self._losses = self._get_losses(self.est_wav_features, self.clean_wav_features,
-                                      self._d_logits, self._d_labels)
-
     # trainable_variables = tf.compat.v1.trainable_variables()
-    self.d_params = tf.compat.v1.trainable_variables(scope='D/')
-    self.g_params = tf.compat.v1.trainable_variables(scope='G/')
-
-    if mode == PARAM.MODEL_TRAIN_KEY:
-      print("\nD PARAMs:")
-      misc_utils.show_variables(self.d_params)
-      print("\nG PARAMs")
-      misc_utils.show_variables(self.g_params)
-
-    self.save_variables.extend(self.g_params + self.d_params)
+    self.d_params = self.discriminator.trainable_variables
+    self.g_params = self.generator.trainable_variables
+    self.save_variables = self.generator.variables + self.discriminator.variables
     self.saver = tf.compat.v1.train.Saver(self.save_variables,
                                           max_to_keep=40,
                                           save_relative_paths=True)
 
+    if mode == PARAM.MODEL_TRAIN_KEY:
+      print("\nD Trainable PARAMs:")
+      misc_utils.show_variables(self.d_params)
+      print("\nG Trainable PARAMs")
+      misc_utils.show_variables(self.g_params)
+      # print("\n save_vars")
+      # misc_utils.show_variables(self.save_variables)
+
     if mode == PARAM.MODEL_VALIDATE_KEY or mode == PARAM.MODEL_INFER_KEY:
       return
 
-    all_grads = []
-    all_params = []
+    if PARAM.optimizer == "Adam":
+      self.g_optimizer = tf.keras.optimizers.Adam(self._lr)
+      self.d_optimizer = tf.keras.optimizers.Adam(self._lr)
+    elif PARAM.optimizer == "RMSProp":
+      self.g_optimizer = tf.keras.optimizers.RMSProp(self._lr)
+      self.d_optimizer = tf.keras.optimizers.RMSProp(self._lr)
 
     ## G grads
-    grads_G = tf.gradients(
+    grads_G = self.g_optimizer.get_gradients(
       self._losses.sum_loss_G,
       self.g_params,
-      colocate_gradients_with_ops=True
     )
     grads_G, _ = tf.clip_by_global_norm(grads_G, PARAM.max_gradient_norm)
-    all_grads.extend(grads_G)
-    all_params.extend(self.g_params)
+    self._train_op_G = self.g_optimizer.apply_gradients(zip(grads_G, self.g_params))
 
+    ## D grads
     if len(PARAM.sum_losses_D)>0:
-      ## D grads
-      grads_D = tf.gradients(
+      grads_D = self.d_optimizer.get_gradients(
         self._losses.sum_loss_D,
         self.d_params,
-        colocate_gradients_with_ops=True
       )
       grads_D, _ = tf.clip_by_global_norm(grads_D, PARAM.max_gradient_norm)
-      all_grads.extend(grads_D)
-      all_params.extend(self.d_params)
-
-    if PARAM.optimizer == "Adam":
-      self.optimizer = tf.compat.v1.train.AdamOptimizer(self._lr)
-    elif PARAM.optimizer == "RMSProp":
-      self.optimizer = tf.compat.v1.train.RMSPropOptimizer(self._lr)
-    self._train_op = self.optimizer.apply_gradients(zip(all_grads, all_params),
-                                                    global_step=self.global_step)
-
-
-  def _RNN_FC(self, input_feature_batch, training=False):
-    outputs = input_feature_batch # [batch, time, feature_dim]
-    _batch_size = tf.shape(outputs)[0]
-
-    # BLSTM
-    # self.blstm_outputs = []
-    for blstm in self.variables.blstm_layers:
-      outputs = blstm(outputs, training=training)
-      # self.blstm_outputs.append(outputs)
-
-    # LSTM
-    for lstm in self.variables.lstm_layers:
-      outputs = lstm(outputs, training=training)
-
-    # FC
-    if len(self.variables.blstm_layers) > 0 and len(self.variables.lstm_layers) <= 0:
-      outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL*2])
+      self._train_op_D = self.d_optimizer.apply_gradients(zip(grads_D, self.d_params))
     else:
-      outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL])
-    outputs = self.variables.out_fc(outputs)
-    outputs = tf.reshape(outputs, [_batch_size, -1, PARAM.feature_dim])
-    return outputs
+      self._train_op_D = tf.no_op()
+
+    self._global_step_increase = self.global_step.assign_add(1)
+    self._train_op = tf.group(self._train_op_D, self._train_op_G, self._global_step_increase)
+    # self.adam_p = self.optimizer.variables()
+    # for p in self.adam_p:
+    #   print(p)
 
 
   def _forward(self):
     training = (self.mode == PARAM.MODEL_TRAIN_KEY)
-    nn_out = self._RNN_FC(self.mixed_wav_features.mag_batch, training)
+    nn_out = self.generator(self.mixed_wav_features.mag_batch, training)
 
     if PARAM.net_out_mask:
       est_feature_batch = tf.multiply(nn_out, self.mixed_wav_features.mag_batch) # mag estimated
@@ -319,55 +366,6 @@ class Module(object):
                        normed_stft_batch=self.mixed_wav_features.normed_stft_batch,
                        angle_batch=self.mixed_wav_features.angle_batch)
 
-
-  def _discriminator(self, clean_mag_batch, est_mag_batch, mixed_mag_batch):
-    training = (self.mode == PARAM.MODEL_TRAIN_KEY)
-    clean_fea_batch = clean_mag_batch
-    est_fea_batch = est_mag_batch
-    mixed_fea_batch = mixed_mag_batch
-    if PARAM.add_noisy_class_in_D:
-      outputs = tf.concat([clean_fea_batch, est_fea_batch, mixed_fea_batch], axis=0)
-    else:
-      outputs = tf.concat([clean_fea_batch, est_fea_batch], axis=0)
-
-    # Features Transformer
-    outputs = self.variables.FeatureTransformer(outputs)
-    _batch_size = outputs.shape[0]
-
-    if PARAM.frame_level_D:
-      zeros = tf.zeros(clean_fea_batch.shape[0:2], dtype=tf.int32)
-      ones = tf.ones(est_fea_batch.shape[0:2], dtype=tf.int32)
-      twos = tf.ones(mixed_fea_batch.shape[0:2], dtype=tf.int32) * 2
-    else:
-      zeros = tf.zeros(clean_fea_batch.shape[0], dtype=tf.int32)
-      ones = tf.ones(est_fea_batch.shape[0], dtype=tf.int32)
-      twos = tf.ones(mixed_fea_batch.shape[0], dtype=tf.int32) * 2
-    if PARAM.add_noisy_class_in_D:
-      labels = tf.concat([zeros, ones, twos], axis=0)
-    else:
-      labels = tf.concat([zeros, ones], axis=0)
-    onehot_labels = tf.one_hot(labels, 3 if PARAM.add_noisy_class_in_D else 2)
-    # print(outputs.shape.as_list(), ' dddddddddddddddddddddd test shape')
-
-    for blstm in self.variables.D_blstm_layers:
-      outputs = blstm(outputs, training=training)
-
-    for lstm in self.variables.D_lstm_layers:
-      outputs = lstm(outputs, training=training)
-
-    if not PARAM.frame_level_D:
-      outputs = outputs[:,-1,:]
-
-    # FC
-    if len(self.variables.D_blstm_layers) > 0 and len(self.variables.D_lstm_layers) <= 0:
-      outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL*2])
-    else:
-      outputs = tf.reshape(outputs, [-1, self.variables.N_RNN_CELL])
-    outputs = self.variables.D_out_fc(outputs)
-    logits = outputs
-    if PARAM.frame_level_D:
-      logits = tf.reshape(outputs, [_batch_size, -1, 3 if PARAM.add_noisy_class_in_D else 2])
-    return logits, onehot_labels
 
   def _get_losses(self, est_wav_features, clean_wav_features,
                   d_logits, d_labels):
@@ -389,8 +387,8 @@ class Module(object):
     clean_wav_ulawWav_batch = FixULawT_fn(clean_wav_batch, 255.0)
     clean_normed_stft_batch = clean_wav_features.normed_stft_batch
 
-    est_mag_batch_FT = self.variables.FeatureTransformer(est_mag_batch)
-    clean_mag_batch_FT = self.variables.FeatureTransformer(clean_mag_batch)
+    est_mag_batch_FT = self.discriminator.FeatureTransformer(est_mag_batch)
+    clean_mag_batch_FT = self.discriminator.FeatureTransformer(clean_mag_batch)
 
 
     # region losses
@@ -471,17 +469,18 @@ class Module(object):
     for i, name in enumerate(sum_loss_names):
       loss_t = loss_dict[name]
       if len(PARAM.sum_losses_G_w) > 0:
-        loss_t *= PARAM.sum_losses_G_w[i]
+        loss_t = loss_t*PARAM.sum_losses_G_w[i]
       sum_loss_G += loss_t
+    # sum_loss_G = sum_loss_G - self.d_loss
     # endregion sum_loss_G
 
     # region sum_loss_D
-    sum_loss_D = 0.0
+    sum_loss_D = tf.constant(0.0)
     sum_loss_names = PARAM.sum_losses_D
     for i, name in enumerate(sum_loss_names):
       loss_t = loss_dict[name]
       if len(PARAM.sum_losses_D_w) > 0:
-        loss_t *= PARAM.sum_losses_D_w[i]
+        loss_t = loss_t*PARAM.sum_losses_D_w[i]
       sum_loss_D += loss_t
     # endregion sum_loss_D
 
@@ -491,7 +490,7 @@ class Module(object):
     for i, name in enumerate(show_loss_names):
       loss_t = loss_dict[name]
       if len(PARAM.show_losses_w) > 0:
-        loss_t *= PARAM.show_losses_w[i]
+        loss_t = loss_t * PARAM.show_losses_w[i]
       show_losses.append(loss_t)
     show_losses = tf.stack(show_losses)
     # endregion show_losses

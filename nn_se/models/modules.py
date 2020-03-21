@@ -33,7 +33,7 @@ class RealVariables(object):
                                                           return_sequences=True, name='bwlstm_%d' % i, go_backwards=True)
       blstm = tf.keras.layers.Bidirectional(layer=forward_lstm, backward_layer=backward_lstm,
                                             merge_mode='concat', name='G/blstm_%d' % i)
-      dropL = tf.keras.layers.Dropout(rate=0.2)
+      dropL = tf.keras.layers.Dropout(rate=PARAM.blstm_drop_rate)
       self.blstm_layers.append(blstm)
       self.blstm_layers.append(dropL)
 
@@ -69,7 +69,7 @@ class RealVariables(object):
                                                           return_sequences=True, name='dbwlstm_%d' % i, go_backwards=True)
       blstm = tf.keras.layers.Bidirectional(layer=forward_lstm, backward_layer=backward_lstm,
                                             merge_mode='concat', name='D/blstm_%d' % i)
-      dropL = tf.keras.layers.Dropout(rate=0.2)
+      dropL = tf.keras.layers.Dropout(rate=PARAM.blstm_drop_rate)
       self.D_blstm_layers.append(blstm)
       self.D_blstm_layers.append(dropL)
 
@@ -171,7 +171,10 @@ class Module(object):
                                               PARAM.frame_step, PARAM.fft_length)  # [N, T, F]
     mixed_mag_batch = tf.abs(mixed_stft_batch) # [N, F, T]
     mixed_angle_batch = tf.angle(mixed_stft_batch)
-    mixed_normed_stft_batch = tf.exp(tf.complex(0.0, mixed_angle_batch))
+    if PARAM.stft_norm_method == 'polar':
+      mixed_normed_stft_batch = tf.exp(tf.complex(0.0, mixed_angle_batch))
+    elif PARAM.stft_norm_method == 'div':
+      mixed_normed_stft_batch = tf.divide(mixed_stft_batch, tf.complex(mixed_mag_batch+1e-7, 0.0))
     self.mixed_wav_features = WavFeatures(wav_batch=mixed_wav_batch,
                                           stft_batch=mixed_stft_batch,
                                           mag_batch=mixed_mag_batch,
@@ -183,7 +186,10 @@ class Module(object):
                                                 PARAM.frame_step, PARAM.fft_length)
       clean_mag_batch = tf.abs(clean_stft_batch)
       clean_angle_batch = tf.angle(clean_stft_batch)
-      clean_normed_stft_batch = tf.exp(tf.complex(0.0, clean_angle_batch))
+      if PARAM.stft_norm_method == 'polar':
+        clean_normed_stft_batch = tf.exp(tf.complex(0.0, clean_angle_batch))
+      elif PARAM.stft_norm_method == 'div':
+        clean_normed_stft_batch = tf.divide(clean_stft_batch, tf.complex(clean_mag_batch+1e-7, 0.0))
       self.clean_wav_features = WavFeatures(wav_batch=clean_wav_batch,
                                             stft_batch=clean_stft_batch,
                                             mag_batch=clean_mag_batch,

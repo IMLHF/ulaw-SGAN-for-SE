@@ -1,4 +1,19 @@
 import tensorflow as tf
+import numpy as np
+
+def batchMean_SSNR(est, ref):
+  #est, ref: [N, S]
+  eps = np.finfo(np.float64).eps
+  noise = ref - est
+  st_noi = tf.signal.frame(noise, frame_length=480, # [batch, frame, st_wav]
+                           frame_step=120, pad_end=True)
+  st_ref = tf.signal.frame(ref, frame_length=480,
+                           frame_step=120, pad_end=True)
+  noi_temp = tf.reduce_sum(tf.square(st_noi), -1) #[N, T]
+  ref_temp = tf.reduce_sum(tf.square(st_ref), -1)
+  ssnr = 10*tf.log(ref_temp / noi_temp + eps) / tf.log(10.0)
+  loss_ssnr = -tf.reduce_mean(ssnr)
+  return loss_ssnr
 
 def vec_dot_mul(y1, y2):
   dot_mul = tf.reduce_sum(tf.multiply(y1, y2), axis=-1)
@@ -13,7 +28,7 @@ def vec_normal(y):
 def mag_fn(real, imag):
   return tf.sqrt(real**2+imag**2)
 
-def FSum_MSE(y1, y2, _idx=2):
+def FSum_MSE(y1, y2, _idx=2.0):
   # y1, y2: [N, T, F] real or complex
   if y1.dtype is tf.complex128 or y1.dtype is tf.complex64:
     return 0.5*(FSum_MSE(tf.real(y1), tf.real(y2)) + FSum_MSE(tf.imag(y1), tf.imag(y2)))

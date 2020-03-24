@@ -372,7 +372,7 @@ class Module(object):
 
     def FixULawT_fn(x, u):
       # x: [batch, time, fea]
-      y = tf.log(x * u + 1.0) / tf.log(u + 1.0)
+      y = tf.sign(x) * tf.log(tf.abs(x) * u + 1.0) / tf.log(u + 1.0)
       return y
 
     est_mag_batch = est_wav_features.mag_batch
@@ -415,10 +415,14 @@ class Module(object):
                                                    PARAM.relative_loss_epsilon)
 
 
+    self.loss_ssnr = losses.batchMean_SSNR(est_wav_batch, clean_wav_batch)
     self.loss_wav_L1 = losses.FSum_MAE(est_wav_batch, clean_wav_batch)
     self.loss_wav_L2 = losses.FSum_MSE(est_wav_batch, clean_wav_batch)
+    self.loss_ulawwav_L1 = losses.FSum_MAE(tf.expand_dims(est_wav_ulawWav_batch, -1),
+                                           tf.expand_dims(clean_wav_ulawWav_batch, -1))
     self.loss_wav_reL2 = losses.FSum_relativeMSE(est_wav_batch, clean_wav_batch,
                                                  PARAM.relative_loss_epsilon, PARAM.RL_idx)
+    self.loss_ulawCosSim = losses.batchMean_CosSim_loss(est_wav_ulawWav_batch, clean_wav_ulawWav_batch)
 
     self.loss_CosSim = losses.batchMean_CosSim_loss(est_wav_batch, clean_wav_batch)
     self.loss_SquareCosSim = losses.batchMean_SquareCosSim_loss(
@@ -434,7 +438,6 @@ class Module(object):
 
     self.FTloss_mag_mse = losses.FSum_MSE(est_mag_batch_FT, clean_mag_batch_FT)
     self.FTloss_mag_mae = losses.FSum_MAE(est_mag_batch_FT, clean_mag_batch_FT)
-    self.loss_ulawCosSim = losses.batchMean_CosSim_loss(est_wav_ulawWav_batch, clean_wav_ulawWav_batch)
 
     self.d_loss = tf.losses.softmax_cross_entropy(d_labels, d_logits)
 
@@ -449,7 +452,9 @@ class Module(object):
         'loss_mag_reMae': self.loss_mag_reMae,
         'loss_stft_mae': self.loss_stft_mae,
         'loss_stft_reMae': self.loss_stft_reMae,
+        'loss_ssnr': self.loss_ssnr,
         'loss_wav_L1': self.loss_wav_L1,
+        'loss_ulawwav_L1': self.loss_ulawwav_L1,
         'loss_wav_L2': self.loss_wav_L2,
         'loss_wav_reL2': self.loss_wav_reL2,
         'loss_CosSim': self.loss_CosSim,

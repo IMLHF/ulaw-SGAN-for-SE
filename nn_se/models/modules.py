@@ -416,6 +416,7 @@ class Module(object):
 
 
     self.loss_ssnr = losses.batchMean_SSNR(est_wav_batch, clean_wav_batch)
+    self.loss_cssnr = losses.batchMean_CSSNR(est_wav_batch, clean_wav_batch)
     self.loss_wav_L1 = losses.FSum_MAE(est_wav_batch, clean_wav_batch)
     self.loss_wav_L2 = losses.FSum_MSE(est_wav_batch, clean_wav_batch)
     self.loss_ulawwav_L1 = losses.FSum_MAE(tf.expand_dims(est_wav_ulawWav_batch, -1),
@@ -453,6 +454,7 @@ class Module(object):
         'loss_stft_mae': self.loss_stft_mae,
         'loss_stft_reMae': self.loss_stft_reMae,
         'loss_ssnr': self.loss_ssnr,
+        'loss_cssnr': self.loss_ssnr,
         'loss_wav_L1': self.loss_wav_L1,
         'loss_ulawwav_L1': self.loss_ulawwav_L1,
         'loss_wav_L2': self.loss_wav_L2,

@@ -1,6 +1,21 @@
 import tensorflow as tf
 import numpy as np
 
+def batchMean_CSSNR(est, ref):
+  #est, ref: [N, S]
+  eps = np.finfo(np.float64).eps
+  noise = ref - est
+  st_noi = tf.signal.frame(noise, frame_length=480, # [batch, frame, st_wav]
+                           frame_step=120, pad_end=True)
+  st_ref = tf.signal.frame(ref, frame_length=480,
+                           frame_step=120, pad_end=True)
+  noi_temp = tf.reduce_sum(tf.square(st_noi), -1) #[N, T]
+  ref_temp = tf.reduce_sum(tf.square(st_ref), -1)
+  ssnr = 10*tf.log(ref_temp / noi_temp + eps) / tf.log(10.0)
+  cssnr = tf.nn.tanh((ssnr-9.0)/15.0)*22.5+12.5
+  loss_cssnr = -tf.reduce_mean(cssnr)
+  return loss_cssnr
+
 def batchMean_SSNR(est, ref):
   #est, ref: [N, S]
   eps = np.finfo(np.float64).eps

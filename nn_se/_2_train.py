@@ -248,12 +248,13 @@ def main():
             train_log_file)
 
         # test
-        testOutputs = test_one_epoch(sess, test_model)
-        misc_utils.print_log("     Test      > Csig: %.3f, Cbak: %.3f, Covl: %.3f, pesq: %.3f,"
-                             " ssnr: %.4f, Time:%ds.           \n" % (
-                                 testOutputs.csig, testOutputs.cbak, testOutputs.covl, testOutputs.pesq,
-                                 testOutputs.ssnr, testOutputs.cost_time),
-                             train_log_file)
+        if global_step > 2500:
+          testOutputs = test_one_epoch(sess, test_model)
+          misc_utils.print_log("     Test      > Csig: %.3f, Cbak: %.3f, Covl: %.3f, pesq: %.3f,"
+                               " ssnr: %.4f, Time:%ds.           \n" % (
+                                  testOutputs.csig, testOutputs.cbak, testOutputs.covl, testOutputs.pesq,
+                                  testOutputs.ssnr, testOutputs.cost_time),
+                               train_log_file)
 
         # save ckpt
         ckpt_name = PARAM().config_name()+('_step%06d_trloss%.4f_valloss%.4f_lr%.2e_duration%ds' % (

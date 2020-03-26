@@ -102,7 +102,7 @@ class Discriminator(tf.keras.Model):
                                                  name='D/lstm_%d' % i)
       self.Dlstm_layers.append(lstm)
 
-    self.D_out_fc = tf.keras.layers.Dense(3 if PARAM.add_noisy_class_in_D else 2, name='D/out_fc')
+    self.D_out_fc = tf.keras.layers.Dense(1, name='D/out_fc')
 
     ### FeatureTransformerLayers
     if "trainableUlaw" in PARAM.FT_type:
@@ -156,33 +156,22 @@ class Discriminator(tf.keras.Model):
       return x
     self.FeatureTransformer = FeatureTransformer
 
-  def call(self, clean_mag_batch, est_mag_batch, mixed_mag_batch, training):
-    clean_fea_batch = clean_mag_batch
+  def call(self, est_mag_batch, clean_mag_batch, training):
     est_fea_batch = est_mag_batch
-    mixed_fea_batch = mixed_mag_batch
-    if PARAM.add_noisy_class_in_D:
-      outputs = tf.concat([clean_fea_batch, est_fea_batch, mixed_fea_batch], axis=0)
-    else:
-      outputs = tf.concat([clean_fea_batch, est_fea_batch], axis=0)
+    clean_fea_batch = clean_mag_batch
+    outputs = tf.concat([est_fea_batch, clean_fea_batch], axis=0)
 
     # Features Transformer
     outputs = self.FeatureTransformer(outputs)
     _batch_size = outputs.shape[0]
 
-    if PARAM.frame_level_D:
-      zeros = tf.zeros(clean_fea_batch.shape[0:2], dtype=tf.int32)
-      ones = tf.ones(est_fea_batch.shape[0:2], dtype=tf.int32)
-      twos = tf.ones(mixed_fea_batch.shape[0:2], dtype=tf.int32) * 2
-    else:
-      zeros = tf.zeros(clean_fea_batch.shape[0], dtype=tf.int32)
-      ones = tf.ones(est_fea_batch.shape[0], dtype=tf.int32)
-      twos = tf.ones(mixed_fea_batch.shape[0], dtype=tf.int32) * 2
-    if PARAM.add_noisy_class_in_D:
-      labels = tf.concat([zeros, ones, twos], axis=0)
-    else:
-      labels = tf.concat([zeros, ones], axis=0)
-    onehot_labels = tf.one_hot(labels, 3 if PARAM.add_noisy_class_in_D else 2)
-    # print(outputs.shape.as_list(), ' dddddddddddddddddddddd test shape')
+    # if PARAM.frame_level_D:
+    #   zeros = tf.zeros(est_fea_batch.shape[0:2], dtype=tf.int32)
+    #   ones = tf.ones(clean_fea_batch.shape[0:2], dtype=tf.int32)
+    # else:
+    #   zeros = tf.zeros(est_fea_batch.shape[0], dtype=tf.int32)
+    #   ones = tf.ones(clean_fea_batch.shape[0], dtype=tf.int32)
+    # labels = tf.concat([zeros, ones], axis=0)
 
     for blstm in self.D_blstm_layers:
       outputs = blstm(outputs, training=training)
@@ -198,11 +187,12 @@ class Discriminator(tf.keras.Model):
       outputs = tf.reshape(outputs, [-1, self.N_RNN_CELL*2])
     else:
       outputs = tf.reshape(outputs, [-1, self.N_RNN_CELL])
-    outputs = self.D_out_fc(outputs)
-    logits = outputs
+    outputs = self.D_out_fc(outputs) # [N, T, 1] or [N, 1]
     if PARAM.frame_level_D:
-      logits = tf.reshape(outputs, [_batch_size, -1, 3 if PARAM.add_noisy_class_in_D else 2])
-    return logits, onehot_labels
+      outputs = tf.reshape(outputs, [_batch_size, -1, 1])
+    outputs = tf.keras.activations.sigmoid(outputs)
+    clean_d_out, est_d_out = tf.split(outputs, 2, axis=0)
+    return clean_d_out, est_d_out # [N, 1], [N, 1] or [N,T,1],[N,T,1]
 
 
 class WavFeatures(
@@ -270,16 +260,15 @@ class Module(object):
     self.est_wav_features = self._forward()
 
     if self.mode != PARAM.MODEL_INFER_KEY:
-      self._d_logits, self._d_labels = None, None
+      self._clean_d_out, self._est_d_out = None, None
       training = (self.mode == PARAM.MODEL_TRAIN_KEY)
-      self._d_logits, self._d_labels = self.discriminator(self.clean_wav_features.mag_batch,
-                                                          self.est_wav_features.mag_batch,
-                                                          self.mixed_wav_features.mag_batch,
-                                                          training)
+      self._clean_d_out, self._est_d_out = self.discriminator(self.est_wav_features.mag_batch,
+                                                              self.clean_wav_features.mag_batch,
+                                                              training)
 
       # losses
       self._losses = self._get_losses(self.est_wav_features, self.clean_wav_features,
-                                      self._d_logits, self._d_labels)
+                                      self._clean_d_out, self._est_d_out)
 
     # global_step, lr, vars
     self._global_step = self.generator._global_step
@@ -368,7 +357,7 @@ class Module(object):
 
 
   def _get_losses(self, est_wav_features, clean_wav_features,
-                  d_logits, d_labels):
+                  clean_d_out, est_d_out):
 
     def FixULawT_fn(x, u):
       # x: [batch, time, fea]
@@ -400,6 +389,7 @@ class Module(object):
         PARAM.loss_compressedMag_idx)
 
 
+    self.loss_logmag_mse = losses.FSum_MSE(tf.log(est_mag_batch+1e-12), tf.log(clean_mag_batch+1e-12))
     self.loss_mag_mse = losses.FSum_MSE(est_mag_batch, clean_mag_batch)
     self.loss_mag_reMse = losses.FSum_relativeMSE(est_mag_batch, clean_mag_batch,
                                                   PARAM.relative_loss_epsilon, PARAM.RL_idx)
@@ -440,11 +430,12 @@ class Module(object):
     self.FTloss_mag_mse = losses.FSum_MSE(est_mag_batch_FT, clean_mag_batch_FT)
     self.FTloss_mag_mae = losses.FSum_MAE(est_mag_batch_FT, clean_mag_batch_FT)
 
-    self.d_loss = tf.losses.softmax_cross_entropy(d_labels, d_logits)
+    self.d_loss = losses.d_loss(clean_d_out, est_d_out)
 
     loss_dict = {
         'loss_compressedMag_mse': self.loss_compressedMag_mse,
         'loss_compressedStft_mse': self.loss_compressedStft_mse,
+        'loss_logmag_mse': self.loss_logmag_mse,
         'loss_mag_mse': self.loss_mag_mse,
         'loss_mag_reMse': self.loss_mag_reMse,
         'loss_stft_mse': self.loss_stft_mse,

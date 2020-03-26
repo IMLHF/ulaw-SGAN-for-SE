@@ -1,6 +1,11 @@
 import tensorflow as tf
 import numpy as np
 
+def d_loss(clean_d_out, est_d_out):
+  eps = 1e-5
+  loss = - tf.reduce_mean(tf.log(clean_d_out+eps)) - tf.reduce_mean(tf.log(1.0-est_d_out+eps))
+  return loss
+
 def batchMean_CSSNR(est, ref):
   #est, ref: [N, S]
   eps = np.finfo(np.float64).eps

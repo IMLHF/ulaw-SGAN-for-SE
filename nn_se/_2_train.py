@@ -191,13 +191,14 @@ def main():
     try:
       one_batch_time = time.time()
       (sum_loss_G, sum_loss_D, show_losses, _,
-       lr, u
+       lr, u_D, u_G
        ) = sess.run([train_model.losses.sum_loss_G,
                      train_model.losses.sum_loss_D,
                      train_model.losses.show_losses,
                      train_model.train_op,
                      train_model.lr,
                      train_model.discriminator._f_u,
+                     train_model.generator._f_u,
                     #  train_model.adam_p[:2]
                      ])
       global_step = sess.run(train_model.global_step)
@@ -218,7 +219,7 @@ def main():
         avg_sum_loss_D += sum_loss_D
         avg_show_losses += show_losses
 
-      u_str = "#(u %.2e)" % u
+      u_str = "#u: [D %.2e, G %.2e]" % (u_D, u_G)
       print("\rtrain step: %d/%d, cost %.2fs, sum_loss[G %.2f, D %.2f], show_losses %s, lr %.2e, %s          " % (
             global_step, PARAM.max_step, time.time()-one_batch_time, sum_loss_G, sum_loss_D,
             str(show_losses), lr, u_str),
@@ -236,8 +237,9 @@ def main():
         misc_utils.print_log("     sum_losses_G: "+str(PARAM.sum_losses_G)+"\n", train_log_file)
         misc_utils.print_log("     sum_losses_D: "+str(PARAM.sum_losses_D)+"\n", train_log_file)
         misc_utils.print_log("     show losses : "+str(PARAM.show_losses)+"\n", train_log_file)
-        misc_utils.print_log("     Train     > sum_loss:[G %.4f, D %.4f], show_losses:%s, lr:%.2e, %s, Time:%ds.      \n" % (
-            avg_sum_loss_G, avg_sum_loss_D, str(avg_show_losses), lr, u_str, time.time()-save_time),
+        misc_utils.print_log("     %s\n" % u_str, train_log_file)
+        misc_utils.print_log("     Train     > sum_loss:[G %.4f, D %.4f], show_losses:%s, lr:%.2e, Time:%ds.      \n" % (
+            avg_sum_loss_G, avg_sum_loss_D, str(avg_show_losses), lr, time.time()-save_time),
             train_log_file)
 
         # val

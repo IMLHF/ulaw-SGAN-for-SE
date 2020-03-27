@@ -47,9 +47,27 @@ class Generator(tf.keras.Model):
     # FC
     self.out_fc = tf.keras.layers.Dense(PARAM.feature_dim, name='G/out_fc')
 
+    self._f_u = tf.constant(-1.0)
+    if PARAM.add_ulawFT_in_G:
+      # belong to discriminator
+      self._f_u_var = self.add_variable('G/FTL/f_u', shape=[PARAM.n_u_var], dtype=tf.float32,
+                                        initializer=tf.random_normal_initializer(stddev=0.01),
+                                        trainable=PARAM.f_u_var_trainable)
+      self._f_u = PARAM.u_eps + tf.abs(tf.reduce_sum(self._f_u_var))*PARAM.u_times
+
+      def ulaw_fn(x):
+        # x: [batch, time, fea]
+        u = self._f_u
+        y = tf.log(x * u + 1.0) / tf.log(u + 1.0)
+        return y
+      self.ulaw_fn = ulaw_fn
+
   def call(self, input_feature_batch, training=False):
     outputs = input_feature_batch # [batch, time, feature_dim]
     _batch_size = tf.shape(outputs)[0]
+
+    if PARAM.add_ulawFT_in_G:
+      outputs = self.ulaw_fn(outputs)
 
     # BLSTM
     # self.blstm_outputs = []
@@ -190,7 +208,7 @@ class Discriminator(tf.keras.Model):
     outputs = self.D_out_fc(outputs) # [N, T, 1] or [N, 1]
     if PARAM.frame_level_D:
       outputs = tf.reshape(outputs, [_batch_size, -1, 1])
-    outputs = tf.keras.activations.sigmoid(outputs)
+    # outputs = tf.keras.activations.sigmoid(outputs) # mv to losses
     clean_d_out, est_d_out = tf.split(outputs, 2, axis=0)
     return clean_d_out, est_d_out # [N, 1], [N, 1] or [N,T,1],[N,T,1]
 
@@ -431,6 +449,7 @@ class Module(object):
     self.FTloss_mag_mae = losses.FSum_MAE(est_mag_batch_FT, clean_mag_batch_FT)
 
     self.d_loss = losses.d_loss(clean_d_out, est_d_out)
+    self.d_loss_rasgan = losses.d_loss_rasgan(clean_d_out, est_d_out)
 
     loss_dict = {
         'loss_compressedMag_mse': self.loss_compressedMag_mse,
@@ -458,6 +477,7 @@ class Module(object):
         'FTloss_mag_mae': self.FTloss_mag_mae,
         'loss_ulawCosSim': self.loss_ulawCosSim,
         'd_loss': self.d_loss,
+        'd_loss_rasgan': self.d_loss_rasgan,
     }
     # endregion losses
 

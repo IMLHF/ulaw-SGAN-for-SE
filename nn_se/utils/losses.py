@@ -1,8 +1,18 @@
 import tensorflow as tf
 import numpy as np
 
+def d_loss_rasgan(clean_d_out, est_d_out):
+  '''
+  relativistic standard GAN loss
+  '''
+  real_fake = clean_d_out - est_d_out
+  fake_real = est_d_out - clean_d_out
+  return d_loss(real_fake, fake_real)
+
 def d_loss(clean_d_out, est_d_out):
   eps = 1e-5
+  clean_d_out = tf.keras.activations.sigmoid(clean_d_out)
+  est_d_out = tf.keras.activations.sigmoid(est_d_out)
   loss = - tf.reduce_mean(tf.log(clean_d_out+eps)) - tf.reduce_mean(tf.log(1.0-est_d_out+eps))
   return loss
 

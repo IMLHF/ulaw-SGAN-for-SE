@@ -123,13 +123,6 @@ class Discriminator(tf.keras.Model):
     self.D_out_fc = tf.keras.layers.Dense(1, name='D/out_fc')
 
     ### FeatureTransformerLayers
-    if "trainableUlaw" in PARAM.FT_type:
-      # belong to discriminator
-      self._f_u_var = self.add_variable('D/FTL/f_u', dtype=tf.float32,
-                                        initializer=tf.constant_initializer(0.0001),
-                                        trainable=PARAM.f_u_var_trainable)
-      self._f_u = PARAM.u_eps + tf.abs(self._f_u_var)*PARAM.u_times
-
     if "trainableUlaw_v2" in PARAM.FT_type:
       # belong to discriminator
       self._f_u_var = self.add_variable('D/FTL/f_u', shape=[PARAM.n_u_var], dtype=tf.float32,
@@ -144,10 +137,10 @@ class Discriminator(tf.keras.Model):
       return y
     self.ulaw_fn = ulaw_fn
 
-    # if "RandomDenseT" in PARAM.FT_type:
-    #   ## 3. RandomDenseT
-    #   self.RandomDenseT = tf.keras.layers.Dense(self.N_RNN_CELL, activation='tanh',
-    #                                             name='D/FTL/FT_Dense')
+    if "dense" in PARAM.FT_type:
+      ## RandomDenseT
+      self.RandomDenseT = tf.keras.layers.Dense(self.N_RNN_CELL, activation='tanh',
+                                                name='D/FTL/FT_Dense')
     # if "MelDenseT" in PARAM.FT_type:
     #   ## 4. MelDenseT
     #   melmat_fun = tf.contrib.signal.linear_to_mel_weight_matrix
@@ -160,13 +153,12 @@ class Discriminator(tf.keras.Model):
     #     return tf.matmul(x, melMatrix)
     #   self.MelDenseT = stft2mel
 
-
     def FeatureTransformer(x):
       for ft_type in PARAM.FT_type:
-        if ft_type == "trainableUlaw" or ft_type == "trainableUlaw_v2":
+        if ft_type == "trainableUlaw_v2":
           x = self.ulaw_fn(x)
-        # elif ft_type == "RandomDenseT":
-        #   x = self.RandomDenseT(x)
+        elif ft_type == "dense":
+          x = self.RandomDenseT(x)
         # elif ft_type == "MelDenseT":
         #   x = self.MelDenseT(x)
         else:

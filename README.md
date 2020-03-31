@@ -1,6 +1,6 @@
 
-# <img src="http://latex.codecogs.com/svg.latex?\mu" border="2" width=200/>-law SGAN for speech enhancemen
-<img src="http://latex.codecogs.com/svg.latex?\mu" border="2" width=200/>-law Spectrum GAN
+# <img src="http://latex.codecogs.com/svg.latex?\mu" border="2" width=10/>-law SGAN for speech enhancemen
+<img src="http://latex.codecogs.com/svg.latex?\mu" border="2" width=10/>-law Spectrum GAN
 
 # Prepare for running
 

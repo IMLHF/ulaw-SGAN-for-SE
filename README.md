@@ -1,1 +1,26 @@
-# Speech Enhancement with Feature Transformer Layer
+# $\mu$-law SGAN for speech enhancemen
+$\mu$-law Spectrum GAN
+
+# Prepare for running
+
+1) Running `bash ./nn_se/_1_perprocess.sh` to prepare data.
+
+2) Change "root_dir" parameter in nn_se/FLAGS.py to the root of the project. For example "root_dir = /home/user/ulaw-SGAN-for-SE".
+
+3) Ensure "PARAMS = dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001" is set in last line of nn_se/FLAGS.py.
+
+4) Running `cp nn_se dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001 -r` to create the Experiment config code dir.
+
+# Train
+
+Running `python -m dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001._2_train` to start training of config "dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001".
+
+# Evaluate
+
+Running `python -m dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001._3_enhance_testsets` to get the metrics of Experiment "dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001". The last ckpt is selected as the default ckpt to load. Alse, you can use `--ckp` to specify the path of ckpt.
+
+# More
+
+You will understand everything after reading "nn_se/_1_preprocess.sh", "nn_se/_2_train.py" and "nn_se/_3_enhance_testsets.py".
+
+

@@ -1,7 +1,5 @@
-<script type="text/javascript"
-   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
-</script>
-# $\mu$-law SGAN for speech enhancemen
+
+# <img src="http://latex.codecogs.com/svg.latex?\mu -law" border="0"/>-law SGAN for speech enhancemen
 $\mu$-law Spectrum GAN
 
 # Prepare for running

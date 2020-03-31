@@ -1,6 +1,6 @@
 
 # <img src="http://latex.codecogs.com/svg.latex?{\bm \mu}{\bm {\rm law~SGAN~for~speech~enhancement}}" border="0" height=35/>
-<img src="http://latex.codecogs.com/svg.latex?\mu{\rm law~SGAN~Spectrum~GAN}" border="0" height=15/>
+<img src="http://latex.codecogs.com/svg.latex?\mu{\rm law~Spectrum~GAN}" border="0" height=15/>
 
 # Prepare for running
 

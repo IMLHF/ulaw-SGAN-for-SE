@@ -3,4 +3,6 @@ exp
 *.npy
 __pycache__
 ~*
+abandon——noisy_dataset_exp*
+pre-exp*
 FLAGS.py-

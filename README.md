@@ -1,5 +1,5 @@
 
-# <img src="http://latex.codecogs.com/svg.latex?\mu -law" border="0"/>-law SGAN for speech enhancemen
+# <img src="http://latex.codecogs.com/svg.latex?\mu" border="2" font="14"/>-law SGAN for speech enhancemen
 $\mu$-law Spectrum GAN
 
 # Prepare for running

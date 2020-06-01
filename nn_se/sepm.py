@@ -1,6 +1,6 @@
 from scipy.signal import stft,get_window,correlate,resample
 from scipy.linalg import solve_toeplitz,toeplitz
-from pypesq import pypesq # https://github.com/ludlows/python-pesq
+from pesq import pesq as pesq_inner # https://github.com/ludlows/python-pesq
 from pystoi.stoi import stoi # https://github.com/mpariente/pystoi
 import numpy as np
 import soundfile as sf
@@ -332,23 +332,25 @@ def wss(clean_speech, processed_speech, fs, frameLen=0.03, overlap=0.75):
     distortion = distortion[:int(round(len(distortion)*alpha))]
     return np.mean(distortion)
 
+
 def pesq(clean_speech, processed_speech, fs):
     if fs == 8000:
-        pesq_mos = pypesq(fs,clean_speech, processed_speech, 'nb')
+        pesq_mos = pesq_inner(fs,clean_speech, processed_speech, 'nb')
         pesq_mos = 46607/14945 - (2000*np.log(1/(pesq_mos/4 - 999/4000) - 1))/2989 #remap to raw pesq score
 
     elif fs == 16000:
-        pesq_mos = pypesq(fs,clean_speech, processed_speech, 'wb')
+        pesq_mos = pesq_inner(fs,clean_speech, processed_speech, 'wb')
     elif fs >= 16000:
         numSamples=round(len(clean_speech)/fs*16000)
-        pesq_mos = pypesq(fs,resample(clean_speech, numSamples), resample(processed_speech, numSamples), 'wb')
+        pesq_mos = pesq_inner(fs,resample(clean_speech, numSamples),
+                              resample(processed_speech, numSamples), 'wb')
     else:
         numSamples=round(len(clean_speech)/fs*8000)
-        pesq_mos = pypesq(fs,resample(clean_speech, numSamples), resample(processed_speech, numSamples), 'nb')
+        pesq_mos = pesq_inner(fs,resample(clean_speech, numSamples),
+                              resample(processed_speech, numSamples), 'nb')
         pesq_mos = 46607/14945 - (2000*np.log(1/(pesq_mos/4 - 999/4000) - 1))/2989 #remap to raw pesq score
 
     return pesq_mos
-
 
 
 def composite(clean_speech, processed_speech, fs):

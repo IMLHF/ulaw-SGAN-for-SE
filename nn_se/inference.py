@@ -5,6 +5,7 @@ import numpy as np
 from .models import model_builder
 from .models import modules
 from .utils import misc_utils
+from .utils import audio
 from .FLAGS import PARAM
 
 
@@ -58,3 +59,30 @@ def enhance_one_wav(smg: SMG, wav):
   enhanced_wav_batch = smg.session.run(smg.model.est_clean_wav_batch, feed_dict={smg.model.mixed_wav_batch_in: wav_batch})
   enhanced_wav = enhanced_wav_batch[0]
   return enhanced_wav
+
+if __name__ == "__main__":
+
+  import argparse
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--ckpt', default=None, type=str, help="ckpt dir")
+  args = parser.parse_args()
+
+  smg = build_SMG(ckpt_dir=args.ckpt)
+  print("ckpt :", args.ckpt)
+
+  from pathlib import Path
+  wav_lst = [
+    PARAM.root_dir+"/paper-sample/p232_036-noisy.wav",
+    PARAM.root_dir+"/paper-sample/p232_170-noisy.wav",
+    PARAM.root_dir+"/paper-sample/p232_415-noisy.wav",
+    PARAM.root_dir+"/paper-sample/p257_070-noisy.wav",
+    PARAM.root_dir+"/paper-sample/p257_395-noisy.wav",
+    ]
+  sample_save_dir = misc_utils.exp_configName_dir().joinpath('log')
+  for wave_dir in wav_lst:
+    print("Enhance ", wave_dir, end="\n\n")
+    noisy_wav, sr = audio.read_audio(wave_dir)
+    enhanced_wav = enhance_one_wav(smg, noisy_wav)
+    noisy_name = str(Path(wave_dir).stem).replace("noisy", 'ulawgan')
+    audio.write_audio(str(sample_save_dir.joinpath(noisy_name+'.wav')),
+                      enhanced_wav, PARAM.sampling_rate)

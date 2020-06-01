@@ -72,3 +72,38 @@ def calc_sdr(ref_sig, deg_sig, samplerate):
     """
     sdr, sir, sar, popt = bss_eval_sources(ref_sig, deg_sig)
     return sdr[0]
+
+
+def extractOverlappedWindows(x,nperseg,noverlap,window=None):
+    # source: https://github.com/scipy/scipy/blob/v1.2.1/scipy/signal/spectral.py
+    step = nperseg - noverlap
+    shape = x.shape[:-1]+((x.shape[-1]-noverlap)//step, nperseg)
+    strides = x.strides[:-1]+(step*x.strides[-1], x.strides[-1])
+    result = np.lib.stride_tricks.as_strided(x, shape=shape,
+                                             strides=strides)
+    if window is not None:
+        result = window * result
+    return result
+
+ssnr_min = -10
+ssnr_max = 35
+# eps = np.finfo(np.float32).tiny
+eps=np.finfo(np.float64).eps
+
+def calc_SegSNR(ref_sig, deg_sig, frame_size, frame_shift):
+    # ref_frame = librosa.util.frame(ref_sig, frame_length=frame_size, hop_length=frame_shift).T
+    # deg_frame = librosa.util.frame(deg_sig, frame_length=frame_size, hop_length=frame_shift).T
+
+    hannWin=0.5*(1-np.cos(2*np.pi*np.arange(1,frame_size+1)/(frame_size+1)))
+    ref_frame=extractOverlappedWindows(ref_sig,frame_size,frame_size-frame_shift,hannWin)
+    deg_frame=extractOverlappedWindows(deg_sig,frame_size,frame_size-frame_shift,hannWin)
+
+    # print(np.shape(ref_frame), flush=True)
+    noise_frame = ref_frame - deg_frame
+    ref_energy = np.sum(ref_frame ** 2, axis=-1)
+    noise_energy = np.sum(noise_frame ** 2, axis=-1) + eps
+    ssnr = 10 * np.log10(ref_energy / noise_energy + eps)
+    ssnr[ssnr < ssnr_min] = ssnr_min
+    ssnr[ssnr > ssnr_max] = ssnr_max
+    ssnr = ssnr[:-1]
+    return np.mean(ssnr)

@@ -338,7 +338,7 @@ class Module(object):
       self._train_op_D = tf.no_op()
 
     self._global_step_increase = self._global_step.assign_add(1)
-    self._train_op = tf.group(self._train_op_D, self._train_op_G, self._global_step_increase)
+    self._train_op = tf.group(self._train_op_D, self._train_op_G)
     # self.adam_p = self.optimizer.variables()
     # for p in self.adam_p:
     #   print(p)

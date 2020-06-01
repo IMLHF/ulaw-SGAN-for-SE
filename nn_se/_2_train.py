@@ -201,7 +201,7 @@ def main():
                      train_model.generator._f_u,
                     #  train_model.adam_p[:2]
                      ])
-      global_step = sess.run(train_model.global_step)
+      global_step = sess.run(train_model._global_step_increase)
       # print(adam_p)
       if global_step > PARAM.max_step:
         sess.close()
@@ -226,6 +226,7 @@ def main():
             flush=True, end="")
       one_batch_time = time.time()
 
+      # print(global_step)
       if global_step % PARAM.step_to_save == 0:
         print("\r                                                                           "
               "                                                                             "

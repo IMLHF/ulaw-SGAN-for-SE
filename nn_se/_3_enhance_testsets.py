@@ -103,5 +103,5 @@ if __name__ == "__main__":
   """
   run cmd:
   `OMP_NUM_THREADS=1 python -m xx._3_enhance_testsets 3`
-  [csig,cbak,cvol,pesq,snr,ssnr]=evaluate_all('/home/lhf/worklhf/se-with-FTL/noisy_datasets_16k/clean_testset_wav','/home/lhf/worklhf/se-with-FTL/exp/se_reMagMSE_cnn/enhanced_testsets/noisy_testset_wav')
+  [csig,cbak,cvol,pesq,snr,ssnr]=evaluate_all('/home/lhf/worklhf/ulaw-SGAN-for-SE/noisy_datasets_16k/clean_testset_wav','/home/lhf/worklhf/ulaw-SGAN-for-SE/exp/se_reMagMSE_cnn/enhanced_testsets/noisy_testset_wav')
   """

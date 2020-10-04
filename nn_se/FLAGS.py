@@ -13,7 +13,7 @@ class StaticKey(object):
 
 class BaseConfig(StaticKey):
   VISIBLE_GPU = "0"
-  root_dir = '/home/lhf/worklhf/se-with-FTL/'
+  root_dir = '/home/lhf/worklhf/ulaw-SGAN-for-SE/'
   # datasets_name = 'vctk_musan_datasets'
   datasets_name = 'noisy_datasets_16k'
   '''
@@ -111,7 +111,7 @@ class BaseConfig(StaticKey):
 
 
 class p40(BaseConfig):
-  root_dir = '/home/zhangwenbo5/lihongfeng/se-with-FTL'
+  root_dir = '/home/zhangwenbo5/lihongfeng/ulaw-SGAN-for-SE'
 
 ###########################################
 class se_magmse(p40): # done v100

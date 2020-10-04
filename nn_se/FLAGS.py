@@ -101,7 +101,7 @@ class BaseConfig(StaticKey):
   u_eps = 1e-6
   f_u_var_trainable = True
   n_u_var = 128
-  FT_type = ["trainableUlaw_v2"] # feature transformer type: "trainableUlaw", "trainableUlaw_v2"
+  FT_type = ["trainableUlaw_v2"] # feature transformer type: "dense", "trainableUlaw_v2"
   add_ulawFT_in_G = False
   # MelDenseT_n_mel = 80
   # melDenseT_trainable = True
@@ -160,17 +160,7 @@ class se_magremse_ssnr(p40): # done v100
   relative_loss_epsilon = 0.05
 
 
-class se_wavL1(p40): # running v100
-  FT_type = ["trainableUlaw_v2"]
-  sum_losses_G = ["loss_wav_L1"]
-  sum_losses_D = []
-  show_losses = ["loss_wav_L1",
-                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
-  stop_criterion_losses = []
-  frame_length = 512
-  frame_step = 128
-
-class se_wavL1_noinverWin(p40): # running v100
+class se_wavL1(p40): # done v100
   FT_type = ["trainableUlaw_v2"]
   sum_losses_G = ["loss_wav_L1"]
   sum_losses_D = []
@@ -198,6 +188,18 @@ class se_ssnr(p40): # done v100
 
 
 ######################################################
+class logmagmse(p40): # done
+  '''
+  G: loss_logmag_mse
+  D:
+  '''
+  FT_type = ["trainableUlaw_v2"]
+  sum_losses_G = ["loss_logmag_mse"]
+  sum_losses_D = []
+  show_losses = ["loss_logmag_mse",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+
 class dse_ulawV2_G_logmagmse_Ndloss_001(p40): # done v100
   '''
   u-law v2 128 var
@@ -209,6 +211,67 @@ class dse_ulawV2_G_logmagmse_Ndloss_001(p40): # done v100
   sum_losses_G_w = [0.5, -1.0]
   sum_losses_D = ["d_loss"]
   show_losses = ["d_loss", "loss_logmag_mse",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+
+# class dse_dense_G_FTmagmse_Ndloss_001(p40): # done v100
+#   '''
+#   u-law v2 128 var
+#   G: FTloss_mag_mse + -1*d_loss
+#   D: d_loss
+#   '''
+#   FT_type = ["dense"]
+#   sum_losses_G = ["FTloss_mag_mse", "d_loss"]
+#   sum_losses_G_w = [1.0, -1.0]
+#   sum_losses_D = ["d_loss"]
+#   show_losses = ["FTloss_mag_mse", "d_loss",
+#                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+#   stop_criterion_losses = []
+
+class dse_logE_G_FTmagmse_Ndloss_001(BaseConfig): # running 15041
+  '''
+  u-law v2 128 var
+  G: FTloss_mag_mse + -1*d_loss
+  D: d_loss
+  logE FT
+  '''
+  FT_type = ["logE"]
+  sum_losses_G = ["FTloss_mag_mse", "d_loss"]
+  sum_losses_G_w = [1.0, -1.0]
+  sum_losses_D = ["d_loss"]
+  show_losses = ["FTloss_mag_mse", "d_loss",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+
+class dse_tlogE_G_FTmagmse_Ndloss_001(BaseConfig): # running 15041
+  '''
+  u-law v2 128 var
+  G: FTloss_mag_mse + -1*d_loss
+  D: d_loss
+  trainable_LogE_FT
+  '''
+  FT_type = ["trainableLogE"]
+  sum_losses_G = ["FTloss_mag_mse", "d_loss"]
+  sum_losses_G_w = [1.0, -1.0]
+  sum_losses_D = ["d_loss"]
+  show_losses = ["FTloss_mag_mse", "d_loss",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+
+class dse_255ulawV2_G_FTmagmse_Ndloss_001(BaseConfig): # running 15041
+  '''
+  u-law v2 128 var
+  G: FTloss_mag_mse + -1*d_loss
+  D: d_loss
+  fixed u=255
+  '''
+  FT_type = ["trainableUlaw_v2"]
+  f_u_var_trainable = False
+  u_eps = 255
+  sum_losses_G = ["FTloss_mag_mse", "d_loss"]
+  sum_losses_G_w = [1.0, -1.0]
+  sum_losses_D = ["d_loss"]
+  show_losses = ["FTloss_mag_mse", "d_loss",
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
 
@@ -226,6 +289,20 @@ class dse_ulawV2_G_FTmagmse_Ndloss_001(p40): # done v100
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
 
+class dse_ulawV2_G_FTmagmse_logmagmse_Ndloss_001(p40): # done v100
+  '''
+  u-law v2 128 var
+  G: FTloss_mag_mse + 0.2*logmagmse + -1*d_loss
+  D: d_loss
+  '''
+  FT_type = ["trainableUlaw_v2"]
+  sum_losses_G = ["FTloss_mag_mse", "loss_logmag_mse", "d_loss"]
+  sum_losses_G_w = [1.0, 0.2, -1.0]
+  sum_losses_D = ["d_loss"]
+  show_losses = ["FTloss_mag_mse", "loss_logmag_mse", "d_loss",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+
 class dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001(p40): # done v100
   '''
   u-law v2 128 var
@@ -240,95 +317,29 @@ class dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001(p40): # done v100
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
 
-class dse_ulawV2_G_FTmagmse_Ndrasgan_ssnr_001(p40): # running v100
+
+
+class dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001_specAna(p40): # done v100
   '''
   u-law v2 128 var
-  G: FTloss_mag_mse + 0.2*loss_ssnr + -1*d_loss_rasgan
+  G: FTloss_mag_mse + 0.2*loss_ssnr + -1*d_loss
   D: d_loss
   '''
   FT_type = ["trainableUlaw_v2"]
-  sum_losses_G = ["FTloss_mag_mse", "loss_ssnr", "d_loss_rasgan"]
-  sum_losses_G_w = [1.0, 0.2, -1.0]
-  sum_losses_D = ["d_loss_rasgan"]
-  show_losses = ["FTloss_mag_mse", "loss_ssnr", "d_loss_rasgan",
-                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
-  stop_criterion_losses = []
-
-#################################################
-
-class logmagmse(p40): # done
-  '''
-  G: loss_logmag_mse
-  D:
-  '''
-  FT_type = ["trainableUlaw_v2"]
-  sum_losses_G = ["loss_logmag_mse"]
-  sum_losses_D = []
-  show_losses = ["loss_logmag_mse",
-                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
-  stop_criterion_losses = []
-
-class logmagmse_uG(p40): # running
-  '''
-  G: loss_logmag_mse
-  D:
-  '''
-  FT_type = ["trainableUlaw_v2"]
-  sum_losses_G = ["loss_logmag_mse"]
-  sum_losses_D = []
-  show_losses = ["loss_logmag_mse",
-                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
-  stop_criterion_losses = []
-  add_ulawFT_in_G = True
-
-class dse_GDulawV2_G_logmagmse_Ndloss_001(p40): # running v100
-  '''
-  u-law v2 128 var
-  G: 0.5*loss_logmag_mse, -1*d_loss
-  D: d_loss
-  '''
-  FT_type = ["trainableUlaw_v2"]
-  sum_losses_G = ["loss_logmag_mse", "d_loss"]
-  sum_losses_G_w = [0.5, -1.0]
-  sum_losses_D = ["d_loss"]
-  show_losses = ["d_loss", "loss_logmag_mse",
-                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
-  stop_criterion_losses = []
-  add_ulawFT_in_G = True
-
-##############################
-
-class dse_DGulawV2_G_FTmagmse_Ndloss_001(p40): # running v100
-  '''
-  u-law v2 128 var
-  G: FTloss_mag_mse + -1*d_loss
-  D: d_loss
-  '''
-  FT_type = ["trainableUlaw_v2"]
-  sum_losses_G = ["FTloss_mag_mse", "d_loss"]
-  sum_losses_G_w = [1.0, -1.0]
-  sum_losses_D = ["d_loss"]
-  show_losses = ["FTloss_mag_mse", "d_loss",
-                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
-  stop_criterion_losses = []
-  add_ulawFT_in_G = True
-
-class dse_DGulawV2_G_FTmagmse_Ndloss_ssnr_001(p40): # runnning v100
-  '''
-  u-law v2 128 var
-  G: FTloss_mag_mse + 0.2*loss_cssnr + -1*d_loss
-  D: d_loss
-  add ulawV2 in G
-  '''
-  FT_type = ["trainableUlaw_v2"]
-  sum_losses_G = ["FTloss_mag_mse", "loss_cssnr", "d_loss"]
+  sum_losses_G = ["FTloss_mag_mse", "loss_ssnr", "d_loss"]
   sum_losses_G_w = [1.0, 0.2, -1.0]
   sum_losses_D = ["d_loss"]
   show_losses = ["FTloss_mag_mse", "loss_ssnr", "d_loss",
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
-  add_ulawFT_in_G = True
 
-PARAM = dse_DGulawV2_G_FTmagmse_Ndloss_001
+  datasets_name = 'noisy_datasets_16k_specAna'
+  n_train_set_records = 20
+  max_step = 40310
+  step_to_save = 100
 
-# CUDA_VISIBLE_DEVICES=7 OMP_NUM_THREADS=4 python -m dse_DGulawV2_G_FTmagmse_Ndloss_001._2_train
+PARAM = dse_255ulawV2_G_FTmagmse_Ndloss_001
+
+# PARAM = dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001
+
+# CUDA_VISIBLE_DEVICES=7 OMP_NUM_THREADS=4 python -m dse_255ulawV2_G_FTmagmse_Ndloss_001._2_train

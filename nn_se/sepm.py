@@ -10,6 +10,9 @@ import glob
 import os
 from tqdm import tqdm
 from functools import partial
+import scipy
+import librosa
+eps=np.finfo(np.float64).eps
 #################################################
 #
 #  SPEECH ENHANCEMENT PERFORMANCE METRICS
@@ -22,6 +25,20 @@ from functools import partial
 #  pip3 install https://github.com/ludlows/python-pesq/archive/master.zip
 #  pip3 install https://github.com/mpariente/pystoi/archive/master.zip
 #
+
+def magnitude_spectrum_librosa_stft(signal, NFFT=400, HOP=160):
+  signal = np.array(signal, dtype=np.float)
+  tmp = librosa.core.stft(signal,
+                          n_fft=NFFT,
+                          hop_length=HOP,
+                          window=scipy.signal.windows.hann)
+  tmp = np.absolute(tmp)
+  return tmp.T #[T, F]
+
+def log_spectral_distance(sa, sb):
+  sp_a = magnitude_spectrum_librosa_stft(sa)
+  sp_b = magnitude_spectrum_librosa_stft(sb)
+  return np.sqrt(np.mean((10.0 * (np.log10(sp_a+eps) - np.log10(sp_b+eps))) ** 2))
 
 def extractOverlappedWindows(x,nperseg,noverlap,window=None):
     # source: https://github.com/scipy/scipy/blob/v1.2.1/scipy/signal/spectral.py
@@ -379,14 +396,15 @@ def compareone(args):
 
     try:
       ssnr,pesq,csig,cbak,covl=composite(c,p,fc)
+      lsd = log_spectral_distance(c, p)
     except np.linalg.LinAlgError:
       print("np.linalg.LinAlgError", flush=True)
-      ssnr,pesq,csig,cbak,covl = 0.0, 0.0, 0.0, 0.0, 0.0
+      ssnr,pesq,csig,cbak,covl, lsd = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     name = clean.split('/')[-1]
     # print('[%s] ssnr:%5.2f pesq:%5.2f csig:%5.2f cbak:%5.2f covl:%5.2f'%(name,
     #             ssnr, pesq, csig, cbak, covl), flush=True)
 
-    return name,csig,cbak,covl,pesq,ssnr
+    return name,csig,cbak,covl,pesq,ssnr,lsd
 
 def compare(refdir, degdir, use_tqdm=True):
     if os.path.isfile(refdir) and os.path.isfile(degdir):
@@ -422,4 +440,4 @@ if __name__ == "__main__":
     print('time: %.3f'%(t2-t1))
     print('ref=', sys.argv[1])
     print('deg=', sys.argv[2])
-    print('csig:%6.4f cbak:%6.4f covl:%6.4f pesq:%6.4f ssnr:%6.4f'% tuple(pm) )
+    print('csig:%6.4f cbak:%6.4f covl:%6.4f pesq:%6.4f ssnr:%6.4f lsd:%6.4f'% tuple(pm) )

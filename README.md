@@ -18,7 +18,7 @@ Running `python -m dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001._2_train` to start trai
 
 # Evaluate
 
-Running `python -m dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001._3_enhance_testsets` to get the metrics of Experiment "dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001". The last ckpt is selected as the default ckpt to load. Alse, you can use `--ckp` to specify the path of ckpt.
+Running `python -m dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001._3_enhance_testsets` to get the metrics of Experiment "dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001". The last ckpt is selected as the default ckpt to load. Alse, you can use `--ckpt` to specify the path of ckpt.
 
 # More
 

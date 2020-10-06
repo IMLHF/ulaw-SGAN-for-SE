@@ -111,7 +111,8 @@ class BaseConfig(StaticKey):
 
 
 class p40(BaseConfig):
-  root_dir = '/home/zhangwenbo5/lihongfeng/ulaw-SGAN-for-SE'
+  root_dir = '/home/lhf/worklhf/ulaw-SGAN-for-SE/'
+  # root_dir = '/home/zhangwenbo5/lihongfeng/ulaw-SGAN-for-SE'
 
 ###########################################
 class se_magmse(p40): # done v100
@@ -188,7 +189,7 @@ class se_ssnr(p40): # done v100
 
 
 ######################################################
-class logmagmse(p40): # done
+class logmagmse(BaseConfig): # done
   '''
   G: loss_logmag_mse
   D:
@@ -200,7 +201,7 @@ class logmagmse(p40): # done
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
 
-class dse_ulawV2_G_logmagmse_Ndloss_001(p40): # done v100
+class dse_ulawV2_G_logmagmse_Ndloss_001(BaseConfig): # done v100
   '''
   u-law v2 128 var
   G: 0.5*loss_logmag_mse, -1*d_loss
@@ -258,7 +259,7 @@ class dse_tlogE_G_FTmagmse_Ndloss_001(BaseConfig): # running 15041
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
 
-class dse_255ulawV2_G_FTmagmse_Ndloss_001(BaseConfig): # running 15041
+class dse_255ulawV2_G_FTmagmse_Ndloss_001(BaseConfig): # done 15041
   '''
   u-law v2 128 var
   G: FTloss_mag_mse + -1*d_loss
@@ -338,8 +339,8 @@ class dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001_specAna(p40): # done v100
   max_step = 40310
   step_to_save = 100
 
-PARAM = dse_255ulawV2_G_FTmagmse_Ndloss_001
+PARAM = dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001
 
 # PARAM = dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001
 
-# CUDA_VISIBLE_DEVICES=7 OMP_NUM_THREADS=4 python -m dse_255ulawV2_G_FTmagmse_Ndloss_001._2_train
+# CUDA_VISIBLE_DEVICES=7 OMP_NUM_THREADS=12 python -m dse_logE_G_FTmagmse_Ndloss_001._2_train

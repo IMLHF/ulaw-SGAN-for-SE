@@ -7,6 +7,8 @@ from ..FLAGS import PARAM
 from ..utils import losses
 from ..utils import misc_utils
 
+log_eps = 1e-12
+
 
 class Generator(tf.keras.Model):
   def __init__(self):
@@ -123,7 +125,8 @@ class Discriminator(tf.keras.Model):
     self.D_out_fc = tf.keras.layers.Dense(1, name='D/out_fc')
 
     ### FeatureTransformerLayers
-    if "trainableUlaw_v2" in PARAM.FT_type:
+    self._f_u = tf.constant(-1.0)
+    if ("trainableUlaw_v2" in PARAM.FT_type) or ("trainableLogE" in PARAM.FT_type):
       # belong to discriminator
       self._f_u_var = self.add_variable('D/FTL/f_u', shape=[PARAM.n_u_var], dtype=tf.float32,
                                         initializer=tf.random_normal_initializer(stddev=0.01),
@@ -136,6 +139,12 @@ class Discriminator(tf.keras.Model):
       y = tf.log(x * u + 1.0) / tf.log(u + 1.0)
       return y
     self.ulaw_fn = ulaw_fn
+
+    def trainableLogE_fn(x):
+      u = self._f_u
+      y = tf.math.log(x * u + log_eps)
+      return y
+    self.trainableLogE_fn = trainableLogE_fn
 
     if "dense" in PARAM.FT_type:
       ## RandomDenseT
@@ -159,6 +168,10 @@ class Discriminator(tf.keras.Model):
           x = self.ulaw_fn(x)
         elif ft_type == "dense":
           x = self.RandomDenseT(x)
+        elif ft_type == "logE":
+          x = tf.math.log(x+log_eps)
+        elif ft_type == "trainableLogE":
+          x = self.trainableLogE_fn(x)
         # elif ft_type == "MelDenseT":
         #   x = self.MelDenseT(x)
         else:
@@ -399,7 +412,7 @@ class Module(object):
         PARAM.loss_compressedMag_idx)
 
 
-    self.loss_logmag_mse = losses.FSum_MSE(tf.log(est_mag_batch+1e-12), tf.log(clean_mag_batch+1e-12))
+    self.loss_logmag_mse = losses.FSum_MSE(tf.log(est_mag_batch+log_eps), tf.log(clean_mag_batch+log_eps))
     self.loss_mag_mse = losses.FSum_MSE(est_mag_batch, clean_mag_batch)
     self.loss_mag_reMse = losses.FSum_relativeMSE(est_mag_batch, clean_mag_batch,
                                                   PARAM.relative_loss_epsilon, PARAM.RL_idx)

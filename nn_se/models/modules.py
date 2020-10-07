@@ -126,7 +126,9 @@ class Discriminator(tf.keras.Model):
 
     ### FeatureTransformerLayers
     self._f_u = tf.constant(-1.0)
-    if ("trainableUlaw_v2" in PARAM.FT_type) or ("trainableLogE" in PARAM.FT_type):
+    if ("trainableUlaw_v2" in PARAM.FT_type
+        ) or ("trainableLogE" in PARAM.FT_type
+              ) or ("trainableLogE+BN" in PARAM.FT_type):
       # belong to discriminator
       self._f_u_var = self.add_variable('D/FTL/f_u', shape=[PARAM.n_u_var], dtype=tf.float32,
                                         initializer=tf.random_normal_initializer(stddev=0.01),
@@ -145,6 +147,10 @@ class Discriminator(tf.keras.Model):
       y = tf.math.log(x * u + log_eps)
       return y
     self.trainableLogE_fn = trainableLogE_fn
+
+    if "trainableLogE+BN" in PARAM.FT_type:
+      # self.trainableLogE_LN = tf.keras.layers.LayerNormalization(-1, name="trainableLogE_LN")
+      self.trainableLogE_LN = tf.keras.layers.BatchNormalization(-1, name="trainableLogE_BN")
 
     if "dense" in PARAM.FT_type:
       ## RandomDenseT
@@ -172,6 +178,9 @@ class Discriminator(tf.keras.Model):
           x = tf.math.log(x+log_eps)
         elif ft_type == "trainableLogE":
           x = self.trainableLogE_fn(x)
+        elif ft_type == "trainableLogE+BN":
+          x = self.trainableLogE_fn(x)
+          x = self.trainableLogE_LN(x)
         # elif ft_type == "MelDenseT":
         #   x = self.MelDenseT(x)
         else:
@@ -351,7 +360,12 @@ class Module(object):
       self._train_op_D = tf.no_op()
 
     self._global_step_increase = self._global_step.assign_add(1)
-    self._train_op = tf.group(self._train_op_D, self._train_op_G)
+
+    update_ops = self.generator.updates.extend(self.discriminator.updates)
+    print("%s G update_ops:" % self.mode, len(self.generator.updates), flush=True)
+    print("%s D update_ops:" % self.mode, len(self.discriminator.updates), flush=True)
+    with tf.control_dependencies(update_ops):
+      self._train_op = tf.group(self._train_op_D, self._train_op_G)
     # self.adam_p = self.optimizer.variables()
     # for p in self.adam_p:
     #   print(p)

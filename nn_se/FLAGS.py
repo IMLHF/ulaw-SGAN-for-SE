@@ -101,7 +101,8 @@ class BaseConfig(StaticKey):
   u_eps = 1e-6
   f_u_var_trainable = True
   n_u_var = 128
-  FT_type = ["trainableUlaw_v2"] # feature transformer type: "dense", "trainableUlaw_v2"
+  FT_type = ["trainableUlaw_v2"]
+  # feature transformer type: "dense", "trainableUlaw_v2", "trainableLogE", "trainableLogE+BN"
   add_ulawFT_in_G = False
   # MelDenseT_n_mel = 80
   # melDenseT_trainable = True
@@ -259,6 +260,21 @@ class dse_tlogE_G_FTmagmse_Ndloss_001(BaseConfig): # running 15041
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
 
+class dse_tlogEBN_G_FTmagmse_Ndloss_001(BaseConfig): # running 15041
+  '''
+  u-law v2 128 var
+  G: FTloss_mag_mse + -1*d_loss
+  D: d_loss
+  trainable_LogE_FT+BN
+  '''
+  FT_type = ["trainableLogE+BN"]
+  sum_losses_G = ["FTloss_mag_mse", "d_loss"]
+  sum_losses_G_w = [1.0, -1.0]
+  sum_losses_D = ["d_loss"]
+  show_losses = ["FTloss_mag_mse", "d_loss",
+                 "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
+  stop_criterion_losses = []
+
 class dse_255ulawV2_G_FTmagmse_Ndloss_001(BaseConfig): # done 15041
   '''
   u-law v2 128 var
@@ -318,8 +334,6 @@ class dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001(p40): # done v100
                  "loss_mag_mse", "loss_stft_mse", "loss_CosSim"]
   stop_criterion_losses = []
 
-
-
 class dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001_specAna(p40): # done v100
   '''
   u-law v2 128 var
@@ -339,8 +353,8 @@ class dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001_specAna(p40): # done v100
   max_step = 40310
   step_to_save = 100
 
-PARAM = dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001
+PARAM = dse_tlogEBN_G_FTmagmse_Ndloss_001
 
 # PARAM = dse_ulawV2_G_FTmagmse_Ndloss_ssnr_001
 
-# CUDA_VISIBLE_DEVICES=7 OMP_NUM_THREADS=12 python -m dse_logE_G_FTmagmse_Ndloss_001._2_train
+# CUDA_VISIBLE_DEVICES=7 OMP_NUM_THREADS=12 python -m dse_tlogEBN_G_FTmagmse_Ndloss_001._2_train

@@ -74,7 +74,7 @@ def eval_one_epoch(sess, val_model, initializer):
 
 class TestOutputs(
     collections.namedtuple("TestOutputs",
-                           ("csig", "cbak", "covl", "pesq", "ssnr",
+                           ("csig", "cbak", "covl", "pesq", "ssnr", "lsd", "estoi",
                             "cost_time"))):
   pass
 
@@ -113,7 +113,8 @@ def test_one_epoch(sess, test_model):
   print("\r                                                                    "
         "                                                                      \r", end="")
   t2 = time.time()
-  return TestOutputs(csig=pm[0], cbak=pm[1], covl=pm[2], pesq=pm[3], ssnr=pm[4],
+  return TestOutputs(csig=pm[0], cbak=pm[1], covl=pm[2], pesq=pm[3],
+                     ssnr=pm[4], lsd=pm[5], estoi=pm[6],
                      cost_time=t2-t1)
 
 
@@ -254,9 +255,9 @@ def main():
         if global_step > 2500:
           testOutputs = test_one_epoch(sess, test_model)
           misc_utils.print_log("     Test      > Csig: %.3f, Cbak: %.3f, Covl: %.3f, pesq: %.3f,"
-                               " ssnr: %.4f, Time:%ds.           \n" % (
+                               " ssnr: %.4f, lsd: %.4f, estoi: %.4f Time:%ds.           \n" % (
                                   testOutputs.csig, testOutputs.cbak, testOutputs.covl, testOutputs.pesq,
-                                  testOutputs.ssnr, testOutputs.cost_time),
+                                  testOutputs.ssnr, testOutputs.lsd, testOutputs.estoi, testOutputs.cost_time),
                                train_log_file)
 
         # save ckpt

@@ -1,7 +1,7 @@
 from scipy.signal import stft,get_window,correlate,resample
 from scipy.linalg import solve_toeplitz,toeplitz
 from pesq import pesq as pesq_inner # https://github.com/ludlows/python-pesq
-from pystoi.stoi import stoi # https://github.com/mpariente/pystoi
+from pystoi.stoi import stoi as stoi_fn # https://github.com/mpariente/pystoi
 import numpy as np
 import soundfile as sf
 from multiprocessing import cpu_count
@@ -397,14 +397,15 @@ def compareone(args):
     try:
       ssnr,pesq,csig,cbak,covl=composite(c,p,fc)
       lsd = log_spectral_distance(c, p)
+      estoi = stoi_fn(c, p, fc, extended=True)
     except np.linalg.LinAlgError:
       print("np.linalg.LinAlgError", flush=True)
-      ssnr,pesq,csig,cbak,covl, lsd = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+      ssnr,pesq,csig,cbak,covl,lsd,estoi = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     name = clean.split('/')[-1]
     # print('[%s] ssnr:%5.2f pesq:%5.2f csig:%5.2f cbak:%5.2f covl:%5.2f'%(name,
     #             ssnr, pesq, csig, cbak, covl), flush=True)
 
-    return name,csig,cbak,covl,pesq,ssnr,lsd
+    return name,csig,cbak,covl,pesq,ssnr,lsd,estoi
 
 def compare(refdir, degdir, use_tqdm=True):
     if os.path.isfile(refdir) and os.path.isfile(degdir):
@@ -440,4 +441,4 @@ if __name__ == "__main__":
     print('time: %.3f'%(t2-t1))
     print('ref=', sys.argv[1])
     print('deg=', sys.argv[2])
-    print('csig:%6.4f cbak:%6.4f covl:%6.4f pesq:%6.4f ssnr:%6.4f lsd:%6.4f'% tuple(pm) )
+    print('csig:%6.4f cbak:%6.4f covl:%6.4f pesq:%6.4f ssnr:%6.4f lsd:%6.4f estoi:%6.4f'% tuple(pm) )

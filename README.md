@@ -2,6 +2,8 @@
 # <img src="http://latex.codecogs.com/svg.latex?{\rm \mu}{\rm {law~SGAN~for~speech~enhancement}}" border="0" height=35/>
 <img src="http://latex.codecogs.com/svg.latex?\mu{\rm {law~Spectrum~GAN}}" border="0" height=15/>
 
+code of paper [Li, H., Xu, Y., Ke, D., & Su, K. (2021). μ-law SGAN for generating spectra with more details in speech enhancement. Neural Networks, 136, 17-27.](https://www.sciencedirect.com/science/article/abs/pii/S0893608020304421)
+
 # Prepare for running
 
 1) Running `bash ./nn_se/_1_perprocess.sh` to prepare data.

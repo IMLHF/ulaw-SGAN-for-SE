@@ -1,4 +1,5 @@
-exp
+/exp
+/paper-sample
 *.wav
 *.npy
 __pycache__
@@ -7,3 +8,4 @@ abandon——noisy_dataset_exp*
 pre-exp*
 _pesq*
 FLAGS.py-
+toserver.sh
